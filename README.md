@@ -12,4 +12,4 @@
   5. Criteria rewriting with resolved concepts → final cohort query
 * **Structured Validation with Pydantic** – Enforces consistent schema for each stage, reducing errors from LLM output.
 * **User Feedback Loop** – Supports iterative edits/refinements to criteria.
-* **SQL Generation** – Produces optimized cohort queries from refined criteria (under development...).
+* **SQL Generation** – Produces optimized cohort queries from refined criteria (under development).
