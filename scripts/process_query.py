@@ -860,34 +860,81 @@ def edit_with_feedback(user_input: str, state_dict: Dict, stage_counter: int):
         raise ValueError("Invalid LLM response format")
 
 
+class BaseCriterion(BaseModel):
+    type: Literal["include", "exclude"]
+    text: str
+
+# Stage 0/1 → Raw criteria
+class RawCriterion(BaseCriterion):
+    pass
+
+class RawCriteriaState(BaseModel):
+    criteria: List[RawCriterion]
+
+
+# Stage 2 → With entities extracted
+class EntityCriterion(BaseCriterion):
+    entities: List[str]
+
+class EntityCriteriaState(BaseModel):
+    criteria: List[EntityCriterion]
+
+
+# Stage 3 → Schema mapping
 class MappingInfo(BaseModel):
     entity_class: Optional[str] = None
     table_field: Optional[str] = Field(
         None, alias="table.field", description="Schema table + field"
     )
     ranked_matches: Optional[List[str]] = None
-    mapped_concept: Optional[str] = None
-    mapping_method: Optional[str] = None
-    reason: Optional[str] = None
-    top_candidates: Optional[List[str]] = None
 
     class Config:
         populate_by_name = True
-
 
 class DbMappingEntry(BaseModel):
     entity: str
     mapping: MappingInfo
 
+class SchemaCriterion(EntityCriterion):
+    db_mappings: List[DbMappingEntry]
 
-class CurrentCriterion(Criterion):  # 🔹 Extends base Criterion
-    entities: Optional[List[str]] = None
-    db_mappings: Optional[List[DbMappingEntry]] = None
-    revised_criterion: Optional[str] = None
+class SchemaCriteriaState(BaseModel):
+    criteria: List[SchemaCriterion]
 
 
-class CurrentCriteriaState(BaseModel):  # 🔹 Like CriteriaList, but richer
-    criteria: List[CurrentCriterion]
+# Stage 4 → Concept mapping
+class ConceptMappingInfo(MappingInfo):
+    mapped_concept: Optional[str] = None
+    mapping_method: Optional[str] = None
+    reason: Optional[str] = None
+    top_candidates: Optional[List[str]] = None
+
+class ConceptDbMappingEntry(BaseModel):
+    entity: str
+    mapping: ConceptMappingInfo
+
+class ConceptCriterion(SchemaCriterion):
+    db_mappings: List[ConceptDbMappingEntry]
+
+class ConceptCriteriaState(BaseModel):
+    criteria: List[ConceptCriterion]
+
+
+# Stage 5 → Rewritten criteria
+class RewrittenCriterion(ConceptCriterion):
+    revised_criterion: str
+
+class RewrittenCriteriaState(BaseModel):
+    criteria: List[RewrittenCriterion]
+
+
+STAGE_MODELS: Dict[int, Type[BaseModel]] = {
+    1: RawCriteriaState,       # only type/text
+    2: EntityCriteriaState,    # + entities
+    3: SchemaCriteriaState,    # + db_mappings
+    4: ConceptCriteriaState,   # + concept mapping
+    5: RewrittenCriteriaState  # + revised_criterion
+}
 
 
 def db_mappings_list_to_dict(db_map_list: Optional[List[Any]]) -> Dict[str, Dict[str, Any]]:
@@ -1015,7 +1062,8 @@ def edit_tool(user_input: str, state_dict: Dict, stage_counter: int):
         - Identify the target object for the edit.
         - Decide the minimal change needed to implement user edit in the object.
         - Proceed to make the edit in the precise place(s).
-        - Return a strict JSON: the orignal state JSON with the minimal edit made. Strictly replicate/retain only keys present in the CURRENT STATE JSON in your response even if you notice extra optional keys in the provided SCHEMA. Also preserve the order of keys.
+        - Return a strict JSON: the orignal state JSON with the minimal edit made. 
+        - Strictly replicate/retain only keys present in the CURRENT STATE JSON in your response even if you notice extra optional keys in the provided SCHEMA. Also preserve the order of keys.
         - Return ONLY a strict JSON object that matches the schema described below. No explanations, no markdown.
 
         SCHEMA (Note that this is a generic schema with all possible fields, and not all fields may be present in the CURRENT STATE JSON):
@@ -1053,10 +1101,13 @@ def edit_tool(user_input: str, state_dict: Dict, stage_counter: int):
 
         Return the entire updated object (with key 'criteria') in that schema.
         """
+        # Pick stage-specific response model
+        response_model = STAGE_MODELS.get(stage_counter, RewrittenCriteriaState)
+
         # 1) Try the structured path (preferred)
         try:
-            response = call_llm(user_prompt=edit_prompt, response_model=CurrentCriteriaState)
-            if isinstance(response, CurrentCriteriaState):
+            response = call_llm(user_prompt=edit_prompt, response_model=response_model)
+            if isinstance(response, response_model):
                 # Convert validated model into runtime list-of-dicts & convert db_mappings to dict keyed by entity
                 final_state: List[Dict[str, Any]] = []
                 for crit in response.criteria:
@@ -1067,7 +1118,7 @@ def edit_tool(user_input: str, state_dict: Dict, stage_counter: int):
                 return final_state
             else:
                 # unexpected type — fall back
-                print("[WARN] Structured parse returned unexpected type; falling back to raw parse.")
+                print(f"[WARN] Structured parse returned unexpected type ({type(response)}); falling back to raw parse.")
         except Exception as e_struct:
             # Could be parse failure, validation failure, or API error; fallback to raw parsing
             print(f"[WARN] Structured parse failed ({e_struct}); falling back to raw JSON parse.")
@@ -1093,7 +1144,7 @@ def edit_tool(user_input: str, state_dict: Dict, stage_counter: int):
 
         # Validate coerced structure with CurrentCriteriaState
         try:
-            validated = CurrentCriteriaState.model_validate(coerced)
+            validated = response_model.model_validate(coerced)
         except Exception as e_val:
             print(f"[ERROR] Validation of coerced LLM result failed: {e_val}")
             return None
