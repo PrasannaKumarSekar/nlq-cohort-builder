@@ -1,0 +1,1985 @@
+{
+  "patient": {
+    "table_description": "The \"patient\" table contains demographic and clinical information about patients, including identifiers, cohort classifications, gender, race, ethnicity, age at diagnosis, and history of prior malignancies. This data is essential for analyzing patient characteristics and treatment outcomes in a healthcare or research setting.",
+    "fields": {
+      "patient_id": {
+        "field_data_type": "int64",
+        "field_description": "The `patient_id` column in the `patient` table represents a unique identifier assigned to each patient in the database. Although the declared data type is text, the inferred data type is an integer (int64), indicating that these identifiers are stored as numeric values. Each `patient_id` is unique, with a total of 805 distinct values, ensuring that no two patients share the same identifier. This unique dbGaP identifier is essential for tracking and managing patient data within the database.",
+        "field_sample_values": [
+          2757,
+          2607,
+          2388,
+          2414,
+          2245
+        ],
+        "field_unique_values": "805 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "centre_id": {
+        "field_data_type": "int64",
+        "field_description": "The `centre_id` column in the `patient` table is an integer field that serves as a unique identifier for each institution that has contributed specimens. This column contains a variety of unique values, indicating that multiple institutions are represented in the dataset. With a high uniqueness percentage of 99%, it suggests that most entries in this column correspond to distinct institutions, allowing for effective tracking and management of specimen contributions from different centres.",
+        "field_sample_values": [
+          3,
+          1,
+          2,
+          6,
+          8
+        ],
+        "field_unique_values": [
+          3,
+          1,
+          2,
+          6,
+          8,
+          5,
+          4,
+          7
+        ],
+        "field_uniqueness_percent": 0.99
+      },
+      "cohort": {
+        "field_data_type": "object",
+        "field_description": "The \"cohort\" column in the \"patient\" table represents the cohort identifier for each patient, indicating their participation in specific data-lock waves. The values in this column, such as 'Waves3+4', 'Waves1+2', and 'Both', categorize patients based on the data collection periods they are associated with. This information is crucial for understanding the timing and context of the data collected from each patient. The data type is text, and there is a relatively low uniqueness percentage, suggesting that many patients may belong to the same cohort.",
+        "field_sample_values": [
+          "Waves3+4",
+          "Waves1+2",
+          "Both"
+        ],
+        "field_unique_values": [
+          "Waves3+4",
+          "Waves1+2",
+          "Both"
+        ],
+        "field_uniqueness_percent": 0.37
+      },
+      "gender": {
+        "field_data_type": "object",
+        "field_description": "The \"gender\" column in the \"patient\" table represents the sex of each patient, with possible values of 'Male' and 'Female'. This information is derived from electronic medical records (EMR) and supplemented with inferred sex data based on RNA sequencing analysis of 28 differentially expressed genes. The data type is text, and it contains a limited number of unique values, indicating that it is a categorical field used to classify patients by their gender. The uniqueness percent of 0.25 suggests that a significant portion of the entries may be similar or repeated.",
+        "field_sample_values": [
+          "Male",
+          "Female"
+        ],
+        "field_unique_values": [
+          "Male",
+          "Female"
+        ],
+        "field_uniqueness_percent": 0.25
+      },
+      "self_reported_race": {
+        "field_data_type": "object",
+        "field_description": "The \"self_reported_race\" column in the \"patient\" table contains text values representing the race that patients have self-identified in their electronic medical records (EMR). The possible values include categories such as 'White', 'Asian', 'Black', 'Pacific Islander', 'Multiracial', 'American Indian', as well as options for 'Unknown' and 'Declined' for those who did not provide a response. This field is intended to capture demographic information that may be relevant for patient care and research purposes. With a high uniqueness percentage of 99%, it indicates that the majority of entries are distinct, reflecting a diverse range of self-reported races among patients.",
+        "field_sample_values": [
+          "White",
+          "Unknown",
+          "Asian",
+          "Black",
+          "PacificIslander"
+        ],
+        "field_unique_values": [
+          "White",
+          "Unknown",
+          "Asian",
+          "Black",
+          "PacificIslander",
+          "Multiracial",
+          "AmericanIndian",
+          "Declined"
+        ],
+        "field_uniqueness_percent": 0.99
+      },
+      "self_reported_ethnicity": {
+        "field_data_type": "object",
+        "field_description": "The \"self_reported_ethnicity\" column in the \"patient\" table contains text data that represents the self-reported ethnicity of patients as recorded in the electronic medical records (EMR). The possible values include 'NON-HISPANIC', 'HISPANIC', 'UNKNOWN', and 'DECLINED', indicating the patient's ethnic background or their choice not to disclose this information. The uniqueness percent of 0.5 suggests that there is a moderate level of variation in the responses. This field is important for understanding the demographic composition of the patient population and may be used for research and healthcare analysis.",
+        "field_sample_values": [
+          "NON-HISPANIC",
+          "UNKNOWN",
+          "HISPANIC",
+          "DECLINED"
+        ],
+        "field_unique_values": [
+          "NON-HISPANIC",
+          "UNKNOWN",
+          "HISPANIC",
+          "DECLINED"
+        ],
+        "field_uniqueness_percent": 0.5
+      },
+      "age_at_diagnosis": {
+        "field_data_type": "float64",
+        "field_description": "The column \"age_at_diagnosis\" in the \"patient\" table represents the age of a patient, measured in years, at the time they were diagnosed with a disease. This value is calculated as the difference between the diagnosis date of the disease and the patient's date of birth. Although the inferred data type is float64, indicating that the values may include decimal points, the declared data type is int, suggesting that age is typically recorded as a whole number. The sample values indicate a range of ages at diagnosis, with 83 unique values observed in the dataset, reflecting a diverse patient population.",
+        "field_sample_values": [
+          54.0,
+          69.0,
+          61.0,
+          52.0,
+          25.0
+        ],
+        "field_unique_values": "83 unique values",
+        "field_uniqueness_percent": 10.31
+      },
+      "prior_malignancy": {
+        "field_data_type": "object",
+        "field_description": "The \"prior_malignancy\" column in the \"patient\" table contains information about the types of non-myeloid malignancies that patients may have had prior to their current medical evaluation. The data is stored as text and includes various cancer types, such as prostate cancer, breast cancer, and Hodgkin lymphoma, among others. Each entry may represent a single type of cancer or multiple types separated by a delimiter (e.g., '|'). With 51 unique values and a uniqueness percentage of 6.34, this field captures a diverse range of prior malignancies experienced by patients.",
+        "field_sample_values": [
+          "Prostate Cancer",
+          "Endometrial cancer|Lobular carcinoma in situ",
+          "Breast Cancer",
+          "Squamous cell carcinoma",
+          "Hodgkin Lymphoma"
+        ],
+        "field_unique_values": "51 unique values",
+        "field_uniqueness_percent": 6.34
+      }
+    }
+  },
+  "sample": {
+    "table_description": "The \"sample\" table contains clinical and genomic data related to patients diagnosed with various forms of leukemia and related disorders. It includes information on patient identifiers, disease characteristics, treatment status, specimen details, and the availability of genomic sequencing data, facilitating research and analysis in hematological malignancies.",
+    "fields": {
+      "sample_id": {
+        "field_data_type": "object",
+        "field_description": "The `sample_id` column in the `sample` table contains unique identifiers for DNA or RNA sequencing specimens. Each identifier, such as 'BA2102D' or 'BA2005D', is a text string that serves as a distinct reference for individual samples in the database. With 942 unique values and a uniqueness percentage of 100.0, this column ensures that each sample can be accurately tracked and distinguished from others, facilitating effective data management and analysis in genomic studies.",
+        "field_sample_values": [
+          "BA2102D",
+          "BA2005D",
+          "BA3074D",
+          "BA2555D",
+          "BA3073R"
+        ],
+        "field_unique_values": "942 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "patient_id": {
+        "field_data_type": "int64",
+        "field_description": "The `patient_id` column in the `sample` table represents a unique identifier assigned to each patient in the database. Although the declared data type is text, the inferred data type is an integer (int64), indicating that the identifiers are stored as numeric values. With 805 unique values out of a total number of entries, this column has a uniqueness percentage of 85.46%, suggesting that most patients have a distinct identifier. This identifier is sourced from the dbGaP (database of Genotypes and Phenotypes), ensuring that each patient can be uniquely tracked within the dataset.",
+        "field_sample_values": [
+          2476,
+          2157,
+          2053,
+          2269,
+          2295
+        ],
+        "field_unique_values": "805 unique values",
+        "field_uniqueness_percent": 85.46
+      },
+      "timepoint": {
+        "field_data_type": "int64",
+        "field_description": "The \"timepoint\" column in the \"sample\" table represents the difference in days between the collection date of the earliest specimen and the collection date of the current specimen. The values are stored as integers, with a total of 135 unique values observed in the dataset. This indicates that the timepoints vary significantly, reflecting the time elapsed since the earliest specimen was collected. The uniqueness of the values is approximately 14.33%, suggesting that many specimens were collected on similar days relative to the earliest specimen.",
+        "field_sample_values": [
+          0,
+          1339,
+          1354,
+          1465,
+          574
+        ],
+        "field_unique_values": "135 unique values",
+        "field_uniqueness_percent": 14.33
+      },
+      "is_replapse": {
+        "field_data_type": "object",
+        "field_description": "The \"is_replapse\" column in the \"sample\" table indicates whether the specimen was obtained at the time of a relapsed disease. It contains three possible values: 'FALSE', which suggests that the specimen was not taken during a relapse; 'TRUE', indicating that it was taken during a relapse; and 'unknown', which signifies that the status of the relapse is not specified. The data type is text, and the uniqueness of the values is relatively low, with a uniqueness percentage of 32%.",
+        "field_sample_values": [
+          "FALSE",
+          "TRUE",
+          "unknown"
+        ],
+        "field_unique_values": [
+          "FALSE",
+          "TRUE",
+          "unknown"
+        ],
+        "field_uniqueness_percent": 0.32
+      },
+      "is_denovo": {
+        "field_data_type": "object",
+        "field_description": "The \"is_denovo\" column in the \"sample\" table indicates whether the specimen was obtained at the time of a de novo disease occurrence. It contains three possible values: 'TRUE' signifies that the specimen was collected during a de novo disease event, 'FALSE' indicates that it was not, and 'unknown' suggests that the information regarding the timing of specimen collection is not available. The data type is text, and the uniqueness of the values is relatively low, with only 32% of entries being unique.",
+        "field_sample_values": [
+          "FALSE",
+          "TRUE",
+          "unknown"
+        ],
+        "field_unique_values": [
+          "FALSE",
+          "TRUE",
+          "unknown"
+        ],
+        "field_uniqueness_percent": 0.32
+      },
+      "is_transformed": {
+        "field_data_type": "object",
+        "field_description": "The \"is_transformed\" column in the \"sample\" table indicates whether a patient has undergone transformation from another hematologic malignancy prior to or at the time of specimen collection. The values in this column can be 'TRUE', 'FALSE', or 'unknown', reflecting whether the transformation status is confirmed, not confirmed, or not specified, respectively. The data type is text, and approximately 32% of the entries are unique, suggesting a diverse range of responses regarding patient transformation status.",
+        "field_sample_values": [
+          "FALSE",
+          "TRUE",
+          "unknown"
+        ],
+        "field_unique_values": [
+          "FALSE",
+          "TRUE",
+          "unknown"
+        ],
+        "field_uniqueness_percent": 0.32
+      },
+      "specific_dx_at_acquisition_mdsmpn": {
+        "field_data_type": "int64",
+        "field_description": "The column \"specific_dx_at_acquisition_mdsmpn\" in the \"sample\" table is a boolean field that indicates whether a patient was diagnosed with Myelodysplastic Syndromes (MDS), Myeloproliferative Neoplasms (MPN), or a combination of both at the time of specimen collection. The values in this column are represented as integers, where '0' likely signifies that the patient did not have such a diagnosis, and '1' indicates that the patient did have a diagnosis of MDS, MPN, or MDS/MPN. The uniqueness percent of 0.21 suggests that this field has a relatively low level of variability among the records.",
+        "field_sample_values": [
+          0,
+          1
+        ],
+        "field_unique_values": [
+          0,
+          1
+        ],
+        "field_uniqueness_percent": 0.21
+      },
+      "non_aml_mdsmpn_specific_dx_at_acquisition": {
+        "field_data_type": "int64",
+        "field_description": "The column \"non_aml_mdsmpn_specific_dx_at_acquisition\" in the \"sample\" table indicates whether a patient's diagnosis at the time of specimen collection was not related to Acute Myeloid Leukemia (AML), Myelodysplastic Syndromes (MDS), Myeloproliferative Neoplasms (MPN), or a combination of MDS/MPN. The field is represented as a boolean value, where '0' signifies that the diagnosis was related to one of these conditions, and '1' indicates that it was not. With a uniqueness percentage of 0.21, this suggests that a majority of the samples may have a diagnosis related to these conditions.",
+        "field_sample_values": [
+          0,
+          1
+        ],
+        "field_unique_values": [
+          0,
+          1
+        ],
+        "field_uniqueness_percent": 0.21
+      },
+      "dx_at_inclusion": {
+        "field_data_type": "object",
+        "field_description": "The column \"dx_at_inclusion\" in the \"sample\" table represents the diagnosis of a patient at the time of their earliest specimen inclusion, based on the collection date. The data consists of various types of hematological malignancies, including acute myeloid leukaemia, myeloproliferative neoplasms, and myelodysplastic syndromes, among others. The values are stored as text, indicating the specific type of diagnosis recorded for each patient. With a uniqueness percentage of 64%, this column contains a moderate variety of unique diagnoses, reflecting the diverse range of conditions present in the dataset.",
+        "field_sample_values": [
+          "ACUTE MYELOID LEUKAEMIA (AML) AND RELATED PRECURSOR NEOPLASMS",
+          "MYELOPROLIFERATIVE NEOPLASMS",
+          "MYELODYSPLASTIC/MYELOPROLIFERATIVE NEOPLASMS",
+          "ACUTE LEUKAEMIAS OF AMBIGUOUS LINEAGE",
+          "MYELODYSPLASTIC SYNDROMES"
+        ],
+        "field_unique_values": [
+          "ACUTE MYELOID LEUKAEMIA (AML) AND RELATED PRECURSOR NEOPLASMS",
+          "MYELOPROLIFERATIVE NEOPLASMS",
+          "MYELODYSPLASTIC/MYELOPROLIFERATIVE NEOPLASMS",
+          "ACUTE LEUKAEMIAS OF AMBIGUOUS LINEAGE",
+          "MYELODYSPLASTIC SYNDROMES",
+          "MATURE B-CELL NEOPLASMS"
+        ],
+        "field_uniqueness_percent": 0.64
+      },
+      "specific_dx_at_inclusion": {
+        "field_data_type": "object",
+        "field_description": "The column \"specific_dx_at_inclusion\" in the \"sample\" table contains text entries that represent the specific diagnosis of patients at the time their earliest specimen was included in the study. This diagnosis is based on the collection date of the specimen and includes various types of hematological malignancies, such as different forms of acute myeloid leukaemia, chronic myelomonocytic leukaemia, and other related conditions. The data is diverse, with a total of 49 unique diagnoses, indicating a wide range of hematological conditions being documented. The uniqueness percentage of 4.03 suggests that while there are many unique values, a significant number of entries may share common diagnoses.",
+        "field_sample_values": [
+          "AML with mutated NPM1",
+          "AML with t(6;9)(p23;q34); DEK-NUP214",
+          "Acute myelomonocytic leukaemia",
+          "Mastocytosis",
+          "Therapy-related myeloid neoplasms"
+        ],
+        "field_unique_values": [
+          "AML with mutated NPM1",
+          "AML with t(6;9)(p23;q34); DEK-NUP214",
+          "Acute myelomonocytic leukaemia",
+          "Mastocytosis",
+          "Therapy-related myeloid neoplasms",
+          "AML with minimal differentiation",
+          "Chronic myelomonocytic leukaemia",
+          "Mixed phenotype acute leukaemia, T/myeloid, NOS",
+          "Acute monoblastic and monocytic leukaemia ",
+          "AML with maturation",
+          "AML without maturation",
+          "AML with myelodysplasia-related changes",
+          "unknown",
+          "AML with inv(16)(p13.1q22) or t(16;16)(p13.1;q22); CBFB-MYH11",
+          "Acute promyelocytic leukaemia with t(15;17)(q22;q12); PML-RARA",
+          "Acute undifferentiated leukaemia",
+          "Acute myeloid leukaemia, NOS",
+          "AML with t(8;21)(q22;q22); RUNX1-RUNX1T1",
+          "Acute erythroid leukaemia",
+          "Unknown",
+          "AML with mutated CEBPA",
+          "Acute megakaryoblastic leukaemia",
+          "AML with t(9;11)(p22;q23); MLLT3-MLL",
+          "Secondary myelofibrosis",
+          "AML with inv(3)(q21q26.2) or t(3;3)(q21;q26.2); RPN1-EVI1",
+          "Refractory anaemia with excess blasts",
+          "Myelodysplastic syndrome, unclassifiable",
+          "Atypical chronic myeloid leukaemia, BCR-ABL1 negative",
+          "Myeloid sarcoma",
+          "Blastic plasmacytoid dendritic cell neoplasm",
+          "Essential thrombocythaemia",
+          "Refractory cytopenia with multilineage dysplasia",
+          "Myelodysplastic syndrome associated with isolated del(5q)",
+          "Myeloid leukaemia associated with Down syndrome",
+          "Myelodysplastic/myeloproliferative neoplasm, unclassifiable",
+          "Plasma cell myeloma",
+          "Primary myelofibrosis",
+          "Mixed phenotype acute leukaemia, B/myeloid, NOS"
+        ],
+        "field_uniqueness_percent": 4.03
+      },
+      "eln2017_criteria": {
+        "field_data_type": "object",
+        "field_description": "The column \"eln2017_criteria\" in the \"sample\" table represents the risk classification assigned to a specimen based on the European Leukemia Network (ELN) 2017 guidelines. This classification helps in categorizing the risk level of the specimen, which can include values such as 'Intermediate', 'NonInitial', 'FavorableOrIntermediate', 'Adverse', and 'IntermediateOrAdverse', among others. The data type is text, and the uniqueness of the values is high, indicating a diverse range of classifications.",
+        "field_sample_values": [
+          "Intermediate",
+          "NonInitial",
+          "FavorableOrIntermediate",
+          "Adverse",
+          "IntermediateOrAdverse"
+        ],
+        "field_unique_values": [
+          "Intermediate",
+          "NonInitial",
+          "FavorableOrIntermediate",
+          "Adverse",
+          "IntermediateOrAdverse",
+          "NonAML",
+          "MissingMutations",
+          "Favorable",
+          "MissingKaryo"
+        ],
+        "field_uniqueness_percent": 0.96
+      },
+      "dx_at_specimen_acquisition": {
+        "field_data_type": "object",
+        "field_description": "The column \"dx_at_specimen_acquisition\" in the \"sample\" table likely represents the medical diagnosis assigned to a patient at the time their specimen was collected. This diagnosis is related to various types of blood disorders and neoplasms, as indicated by the sample values, which include conditions such as Acute Myeloid Leukaemia (AML), Myelodysplastic Syndromes, and Myeloproliferative Neoplasms. The data type is text, and the uniqueness percent suggests that while there are several distinct diagnoses, a significant portion of the records may share common diagnoses.",
+        "field_sample_values": [
+          "ACUTE MYELOID LEUKAEMIA (AML) AND RELATED PRECURSOR NEOPLASMS",
+          "MYELODYSPLASTIC/MYELOPROLIFERATIVE NEOPLASMS",
+          "ACUTE LEUKAEMIAS OF AMBIGUOUS LINEAGE",
+          "MYELODYSPLASTIC SYNDROMES",
+          "MYELOPROLIFERATIVE NEOPLASMS"
+        ],
+        "field_unique_values": [
+          "ACUTE MYELOID LEUKAEMIA (AML) AND RELATED PRECURSOR NEOPLASMS",
+          "MYELODYSPLASTIC/MYELOPROLIFERATIVE NEOPLASMS",
+          "ACUTE LEUKAEMIAS OF AMBIGUOUS LINEAGE",
+          "MYELODYSPLASTIC SYNDROMES",
+          "MYELOPROLIFERATIVE NEOPLASMS",
+          "MATURE B-CELL NEOPLASMS"
+        ],
+        "field_uniqueness_percent": 0.64
+      },
+      "specific_dx_at_acquisition": {
+        "field_data_type": "object",
+        "field_description": "The column \"specific_dx_at_acquisition\" in the \"sample\" table contains textual descriptions of specific diagnoses related to hematological conditions at the time a specimen was acquired. The data includes various types of acute and chronic leukemias, myelodysplastic syndromes, and other related myeloid neoplasms. Each entry represents a unique diagnosis, indicating the specific type of blood disorder identified in the patient. The field is characterized by a diverse range of diagnoses, reflecting the complexity of hematological conditions. The uniqueness percentage of 3.82 suggests that while there are many distinct diagnoses, a significant number of entries may share common diagnoses.",
+        "field_sample_values": [
+          "AML with mutated NPM1",
+          "AML with t(6;9)(p23;q34); DEK-NUP214",
+          "Acute myelomonocytic leukaemia",
+          "Therapy-related myeloid neoplasms",
+          "AML with minimal differentiation"
+        ],
+        "field_unique_values": [
+          "AML with mutated NPM1",
+          "AML with t(6;9)(p23;q34); DEK-NUP214",
+          "Acute myelomonocytic leukaemia",
+          "Therapy-related myeloid neoplasms",
+          "AML with minimal differentiation",
+          "Chronic myelomonocytic leukaemia",
+          "Mixed phenotype acute leukaemia, T/myeloid, NOS",
+          "Acute monoblastic and monocytic leukaemia ",
+          "AML with myelodysplasia-related changes",
+          "AML with maturation",
+          "AML without maturation",
+          "unknown",
+          "AML with inv(16)(p13.1q22) or t(16;16)(p13.1;q22); CBFB-MYH11",
+          "Acute promyelocytic leukaemia with t(15;17)(q22;q12); PML-RARA",
+          "Acute undifferentiated leukaemia",
+          "Acute myeloid leukaemia, NOS",
+          "AML with t(8;21)(q22;q22); RUNX1-RUNX1T1",
+          "Acute erythroid leukaemia",
+          "Unknown",
+          "AML with mutated CEBPA",
+          "Acute megakaryoblastic leukaemia",
+          "AML with t(9;11)(p22;q23); MLLT3-MLL",
+          "AML with inv(3)(q21q26.2) or t(3;3)(q21;q26.2); RPN1-EVI1",
+          "Refractory anaemia with excess blasts",
+          "Myelodysplastic syndrome, unclassifiable",
+          "Atypical chronic myeloid leukaemia, BCR-ABL1 negative",
+          "Myeloid sarcoma",
+          "Blastic plasmacytoid dendritic cell neoplasm",
+          "Essential thrombocythaemia",
+          "Refractory cytopenia with multilineage dysplasia",
+          "Myelodysplastic syndrome associated with isolated del(5q)",
+          "Myeloid leukaemia associated with Down syndrome",
+          "Myelodysplastic/myeloproliferative neoplasm, unclassifiable",
+          "Plasma cell myeloma",
+          "Primary myelofibrosis",
+          "Mixed phenotype acute leukaemia, B/myeloid, NOS"
+        ],
+        "field_uniqueness_percent": 3.82
+      },
+      "age_at_specimen_acquisition": {
+        "field_data_type": "float64",
+        "field_description": "The column \"age_at_specimen_acquisition\" in the \"sample\" table represents the age of a patient, measured in years, at the time their specimen was collected. This value is calculated as the difference between the date of specimen collection and the patient's date of birth. Although the declared data type is an integer, the inferred data type is float64, indicating that the values may include decimal points, possibly reflecting more precise age measurements. The column contains 82 unique values, with a uniqueness percentage of 8.7%, suggesting that many patients share similar ages at the time of specimen acquisition. Sample values include ages such as 27.0, 31.0, 36.0, 70.0, and 71.0.",
+        "field_sample_values": [
+          27.0,
+          31.0,
+          36.0,
+          70.0,
+          71.0
+        ],
+        "field_unique_values": "82 unique values",
+        "field_uniqueness_percent": 8.7
+      },
+      "specimen_groups": {
+        "field_data_type": "object",
+        "field_description": "The \"specimen_groups\" column in the \"sample\" table contains a concatenated list of specimen groups that indicate the disease stage at the time of specimen collection. Each entry represents various conditions or statuses related to leukemia, such as \"Initial Acute Leukemia Diagnosis,\" \"Relapse,\" \"Post-Transplant,\" and \"Residual Disease.\" The data type is text, and the column includes multiple unique values that reflect different combinations of these disease stages. The uniqueness percentage is relatively low at 3.5%, suggesting that many entries share similar characteristics or conditions. This field is essential for understanding the context of each specimen in relation to the patient's disease progression and treatment history.",
+        "field_sample_values": [
+          "Initial Acute Leukemia Diagnosis",
+          "Relapse,Post-Transplant,Post-Chemotherapy",
+          "Post-Transplant,Residual Disease",
+          "Residual Disease,Post-Transplant",
+          "Post-Chemotherapy,Residual Disease"
+        ],
+        "field_unique_values": [
+          "Initial Acute Leukemia Diagnosis",
+          "Relapse,Post-Transplant,Post-Chemotherapy",
+          "Post-Transplant,Residual Disease",
+          "Residual Disease,Post-Transplant",
+          "Post-Chemotherapy,Residual Disease",
+          "Relapse,Post-Chemotherapy",
+          "Residual Disease,Post-Chemotherapy",
+          "Relapse",
+          "Residual Disease",
+          "Post-DLI,Residual Disease,Post-Transplant",
+          "Initial Acute Leukemia Diagnosis,Post-Chemotherapy",
+          "Unknown",
+          "Post-Chemotherapy",
+          "Post-Transplant,Post-Chemotherapy,Residual Disease",
+          "Post-Chemotherapy,Post-Transplant,Relapse",
+          "Post-Chemotherapy,Post-Transplant,Residual Disease",
+          "Residual Disease,Post-Transplant,Post-Chemotherapy",
+          "Post-Chemotherapy,Relapse",
+          "Residual Disease,Post-Chemotherapy,Post-Transplant",
+          "Post-Chemotherapy,Post-Transplant",
+          "Initial Acute Leukemia Diagnosis,Post-Transplant,Post-Chemotherapy",
+          "Post-Chemotherapy,Initial Acute Leukemia Diagnosis",
+          "Initial Acute Leukemia Diagnosis,Post-Chemotherapy,Post-Transplant",
+          "Residual Disease,Post-Chemotherapy,Post-DLI,Post-Transplant",
+          "Post-Chemotherapy,Post-Transplant,Post-DLI,Initial Acute Leukemia Diagnosis",
+          "Post-Chemotherapy,Post-DLI,Post-Transplant,Residual Disease",
+          "Post-Chemotherapy,Residual Disease,Post-Transplant",
+          "Post-Transplant,Post-Chemotherapy",
+          "Relapse,Post-Chemotherapy,Post-Transplant",
+          "Post-Transplant,Relapse,Post-Chemotherapy",
+          "Post-Transplant,Relapse",
+          "Post-Chemotherapy,Post-Transplant,Initial Acute Leukemia Diagnosis",
+          "Post-Chemotherapy,Relapse,Post-Transplant"
+        ],
+        "field_uniqueness_percent": 3.5
+      },
+      "disease_stage_at_specimen_collection": {
+        "field_data_type": "object",
+        "field_description": "The column \"disease_stage_at_specimen_collection\" in the \"sample\" table captures the stage of a patient's disease at the time when a specimen was collected. The values in this column include categories such as 'Initial Diagnosis', 'Relapse', 'Residual', 'Unknown', and 'Remission'. This information is essential for understanding the patient's condition during specimen collection and may be used for clinical assessments, research, and treatment planning. The data type is text, indicating that the entries are descriptive rather than numerical.",
+        "field_sample_values": [
+          "Initial Diagnosis",
+          "Relapse",
+          "Residual",
+          "Unknown",
+          "Remission"
+        ],
+        "field_unique_values": [
+          "Initial Diagnosis",
+          "Relapse",
+          "Residual",
+          "Unknown",
+          "Remission"
+        ],
+        "field_uniqueness_percent": 0.53
+      },
+      "specimen_type": {
+        "field_data_type": "object",
+        "field_description": "The \"specimen_type\" column in the \"sample\" table represents the type of specimen collected for analysis. It is categorized as text data and includes unique values such as 'Bone Marrow Aspirate', 'Peripheral Blood', and 'Leukapheresis'. With a uniqueness percentage of 0.32, this indicates that a significant portion of the samples may share the same specimen type, suggesting that these types are commonly used in the context of the data.",
+        "field_sample_values": [
+          "Bone Marrow Aspirate",
+          "Peripheral Blood",
+          "Leukapheresis"
+        ],
+        "field_unique_values": [
+          "Bone Marrow Aspirate",
+          "Peripheral Blood",
+          "Leukapheresis"
+        ],
+        "field_uniqueness_percent": 0.32
+      },
+      "rnaseq_availability": {
+        "field_data_type": "object",
+        "field_description": "The column \"rnaseq_availability\" in the \"sample\" table indicates whether RNA sequencing (RNAseq) was performed on the specimen. It contains two possible values: 'y' for yes, indicating that RNAseq was conducted, and 'n' for no, indicating that it was not performed. The data type is text, and the uniqueness percent suggests that a significant portion of the samples may not have RNAseq data available.",
+        "field_sample_values": [
+          "n",
+          "y"
+        ],
+        "field_unique_values": [
+          "n",
+          "y"
+        ],
+        "field_uniqueness_percent": 0.21
+      },
+      "exomeseq_available": {
+        "field_data_type": "object",
+        "field_description": "The column \"exomeseq_available\" in the \"sample\" table indicates whether whole-exome sequencing (WES) was performed on the specimen. It contains two possible values: 'y' for yes, indicating that WES was conducted, and 'n' for no, indicating that it was not performed. The data type is text, and the uniqueness percent suggests that a small proportion of samples have undergone WES.",
+        "field_sample_values": [
+          "y",
+          "n"
+        ],
+        "field_unique_values": [
+          "y",
+          "n"
+        ],
+        "field_uniqueness_percent": 0.21
+      }
+    }
+  },
+  "mutation": {
+    "table_description": "The \"mutation\" table stores detailed information about genetic mutations identified in various samples, including their genomic positions, reference and alternate alleles, variant classifications, and associated gene information. This data is essential for analyzing the impact of mutations on genes and their potential implications in diseases.",
+    "fields": {
+      "variant_id": {
+        "field_data_type": "int64",
+        "field_description": "The `variant_id` column in the `mutation` table likely represents a unique identifier for different genetic variants. Each entry in this column is an integer value, with a total of 11,721 unique identifiers, indicating that each variant is distinct. Despite the inferred data type being `int64`, the declared data type is `text`, which may suggest that the identifiers could also be represented as strings in certain contexts. This column is essential for tracking and referencing specific mutations in genetic data analysis.",
+        "field_sample_values": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "field_unique_values": "11721 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "sample_id": {
+        "field_data_type": "object",
+        "field_description": "The \"sample_id\" column in the \"mutation\" table contains unique identifiers for DNA or RNA sequencing specimens, as indicated by the provided description. Each identifier, such as 'BA2336D' or 'BA2643D', serves as a distinct reference for a specific sample in the database. With 871 unique values, this column represents a diverse set of samples, accounting for approximately 7.43% of the total entries. The data type is classified as text, suggesting that the identifiers are alphanumeric strings.",
+        "field_sample_values": [
+          "BA2336D",
+          "BA2643D",
+          "BA2067D",
+          "BA2673D",
+          "BA2265D"
+        ],
+        "field_unique_values": "871 unique values",
+        "field_uniqueness_percent": 7.43
+      },
+      "capture_chemistry": {
+        "field_data_type": "object",
+        "field_description": "The `capture_chemistry` column in the `mutation` table likely represents the specific methods or technologies used for capturing genetic material during sequencing processes. The sample values, such as 'NexteraV1.2' and 'Nimblegen Custom Capture', indicate different capture kits or protocols employed in the laboratory. Given that the column has a low uniqueness percentage (0.02), it suggests that there are only a few distinct capture methods used across the dataset. This field is declared as text, indicating that it stores string values related to the capture chemistry utilized in the experiments.",
+        "field_sample_values": [
+          "NexteraV1.2",
+          "Nimblegen Custom Capture"
+        ],
+        "field_unique_values": [
+          "NexteraV1.2",
+          "Nimblegen Custom Capture"
+        ],
+        "field_uniqueness_percent": 0.02
+      },
+      "seq_names": {
+        "field_data_type": "object",
+        "field_description": "The `seq_names` column in the `mutation` table appears to represent a list of sequence identifiers, which are likely used to denote specific mutations or genetic sequences. The values in this column include both numeric identifiers (e.g., '1', '2', '3', etc.) and non-numeric identifiers ('X', 'Y'), suggesting that it may be used to categorize or label different sequences in a biological or genetic context. The uniqueness percent of 0.2 indicates that there is a relatively low level of distinct values compared to the total number of entries, which may imply that many records share the same sequence identifier. The declared data type is text, confirming that the values are stored as strings. Overall, this column is essential for identifying and differentiating various sequences associated with mutations in the dataset.",
+        "field_sample_values": [
+          "4",
+          "5",
+          "11",
+          "2",
+          "12"
+        ],
+        "field_unique_values": [
+          "4",
+          "5",
+          "11",
+          "2",
+          "12",
+          "17",
+          "18",
+          "3",
+          "7",
+          "16",
+          "15",
+          "9",
+          "X",
+          "13",
+          "19",
+          "21",
+          "8",
+          "1",
+          "14",
+          "6",
+          "20",
+          "22",
+          "10",
+          "Y"
+        ],
+        "field_uniqueness_percent": 0.2
+      },
+      "pos_start": {
+        "field_data_type": "int64",
+        "field_description": "The `pos_start` column in the `mutation` table likely represents the starting position of a mutation within a genomic sequence. The values are stored as integers (int64), indicating specific locations on a chromosome or DNA strand. With 5345 unique values and a uniqueness percentage of 45.6%, this column captures a range of mutation positions, suggesting that multiple mutations can occur at the same position. However, the absence of a provided description in the data dictionary means that further context about the biological significance or specific application of these positions may be needed for a complete understanding.",
+        "field_sample_values": [
+          106156042,
+          106190829,
+          170837543,
+          32456651,
+          25457242
+        ],
+        "field_unique_values": "5345 unique values",
+        "field_uniqueness_percent": 45.6
+      },
+      "pos_end": {
+        "field_data_type": "int64",
+        "field_description": "The `pos_end` column in the `mutation` table likely represents the ending position of a mutation within a genomic sequence. Given that the data type is an integer (int64), the values indicate specific nucleotide positions on a chromosome. The sample values suggest that these positions can vary widely, reflecting different mutations across various genomic locations. With 5348 unique values and a uniqueness percentage of 45.63%, it indicates that many mutations occur at distinct positions, while some positions may be associated with multiple mutations. However, no specific description is provided in the data dictionary, leaving the exact biological context open to interpretation.",
+        "field_sample_values": [
+          106156043,
+          106190830,
+          170837543,
+          32456652,
+          25457242
+        ],
+        "field_unique_values": "5348 unique values",
+        "field_uniqueness_percent": 45.63
+      },
+      "ref": {
+        "field_data_type": "object",
+        "field_description": "The \"ref\" column in the \"mutation\" table likely represents reference sequences or nucleotides associated with genetic mutations. The sample values, which include combinations of letters such as 'TC', 'AG', 'C', 'GC', and 'CCT', suggest that this field contains nucleotide sequences or variations thereof. Given the presence of 233 unique values and a low uniqueness percentage of 1.99, it indicates that many entries may share common reference sequences. The declared data type as text further supports the idea that this column is intended to store alphanumeric representations of genetic data. However, no specific description is provided in the data dictionary, leaving the exact context of its use open to interpretation.",
+        "field_sample_values": [
+          "TC",
+          "AG",
+          "C",
+          "GC",
+          "CCT"
+        ],
+        "field_unique_values": "233 unique values",
+        "field_uniqueness_percent": 1.99
+      },
+      "alt": {
+        "field_data_type": "object",
+        "field_description": "The \"alt\" column in the \"mutation\" table likely represents the alternative nucleotide sequences observed in genetic mutations. Given the sample values such as 'T', 'A', 'CTCTG', 'G', and 'C', it appears to capture variations from a reference sequence, where each entry can denote a single nucleotide change or a longer sequence alteration. With 160 unique values and a low uniqueness percentage of 1.37, this column indicates a diverse set of alternative sequences present in the dataset, suggesting a wide range of genetic variations being analyzed. The declared data type as text aligns with the nature of the data, which consists of alphanumeric characters representing genetic information.",
+        "field_sample_values": [
+          "T",
+          "A",
+          "CTCTG",
+          "G",
+          "C"
+        ],
+        "field_unique_values": "160 unique values",
+        "field_uniqueness_percent": 1.37
+      },
+      "genotyper": {
+        "field_data_type": "object",
+        "field_description": "The \"genotyper\" column in the \"mutation\" table likely represents the method or tool used to identify genetic variations in the data. Sample values such as 'varscan' and 'mutect' indicate that this column records the specific genotyping software employed for mutation analysis. With a low uniqueness percent of 0.02, it suggests that the column contains a limited number of distinct values, primarily indicating the tools used in the genotyping process.",
+        "field_sample_values": [
+          "varscan",
+          "mutect"
+        ],
+        "field_unique_values": [
+          "varscan",
+          "mutect"
+        ],
+        "field_uniqueness_percent": 0.02
+      },
+      "tumor_only": {
+        "field_data_type": "int64",
+        "field_description": "The \"tumor_only\" column in the \"mutation\" table is an integer field that likely indicates the presence or absence of tumor-specific mutations. The sample values of 1 and 0 suggest a binary classification, where a value of 1 may represent the presence of tumor-specific mutations, while a value of 0 indicates their absence. Given that there are only two unique values and a low uniqueness percentage of 0.02, this column is likely used to filter or categorize data related to tumor mutations in the database.",
+        "field_sample_values": [
+          1,
+          0
+        ],
+        "field_unique_values": [
+          1,
+          0
+        ],
+        "field_uniqueness_percent": 0.02
+      },
+      "total_reads": {
+        "field_data_type": "int64",
+        "field_description": "The \"total_reads\" column in the \"mutation\" table likely represents the total number of sequencing reads associated with a specific mutation. Each entry in this column is an integer value (int64), indicating how many times a particular mutation has been observed or recorded in the dataset. With 453 unique values and a uniqueness percentage of 3.86%, this column suggests that many mutations have similar read counts, while a few may have significantly higher counts. This information could be useful for analyzing the prevalence and significance of various mutations in the dataset.",
+        "field_sample_values": [
+          151,
+          74,
+          59,
+          51,
+          28
+        ],
+        "field_unique_values": "453 unique values",
+        "field_uniqueness_percent": 3.86
+      },
+      "allele_reads": {
+        "field_data_type": "int64",
+        "field_description": "The \"allele_reads\" column in the \"mutation\" table likely represents the count of reads for specific alleles observed in a genomic sequencing experiment. Each integer value indicates the number of times a particular allele was detected in the sample, with sample values ranging from 11 to 68. With 232 unique values and a low uniqueness percentage of 1.98%, this column suggests that many alleles have similar read counts, indicating a diverse set of alleles present in the dataset. The data type is an integer, consistent with the nature of count data.",
+        "field_sample_values": [
+          68,
+          28,
+          17,
+          18,
+          11
+        ],
+        "field_unique_values": "232 unique values",
+        "field_uniqueness_percent": 1.98
+      },
+      "normal_total_reads": {
+        "field_data_type": "int64",
+        "field_description": "The column \"normal_total_reads\" in the \"mutation\" table likely represents the total number of reads obtained from normal tissue samples during genomic sequencing. The data type is an integer (int64), indicating that the values are whole numbers. Sample values range from 0 to 194, with a total of 369 unique values observed in the dataset. The uniqueness percent of 3.15 suggests that many entries share the same read counts, indicating common values across different samples. This field is important for analyzing the sequencing data and understanding the normal genomic background in relation to mutations.",
+        "field_sample_values": [
+          0,
+          41,
+          191,
+          194,
+          65
+        ],
+        "field_unique_values": "369 unique values",
+        "field_uniqueness_percent": 3.15
+      },
+      "normal_allele_reads": {
+        "field_data_type": "int64",
+        "field_description": "The column \"normal_allele_reads\" in the \"mutation\" table likely represents the count of reads for the normal allele observed in a genomic sequencing analysis. The data type is an integer (int64), indicating that it stores whole number values. Sample values range from 0 to 5, with a total of 54 unique values recorded in the dataset, suggesting variability in the number of reads across different samples. The uniqueness percentage of 0.46 indicates that nearly half of the values are repeated, which may reflect common patterns in the data. This field is essential for understanding the presence and abundance of normal alleles in the context of genetic mutations.",
+        "field_sample_values": [
+          0,
+          1,
+          2,
+          4,
+          5
+        ],
+        "field_unique_values": "54 unique values",
+        "field_uniqueness_percent": 0.46
+      },
+      "t_vaf": {
+        "field_data_type": "float64",
+        "field_description": "The column \"t_vaf\" in the \"mutation\" table likely represents the tumor variant allele frequency (VAF), which is a measure of the proportion of a specific variant allele relative to the total number of alleles at a given genomic position in a tumor sample. The values are expressed as floating-point numbers, indicating the frequency of the variant allele in the sample, with a range typically between 0 and 1. The presence of 4018 unique values suggests a diverse set of variant frequencies across different samples. However, the declared data type is int, which may indicate a discrepancy in the data type definition versus the actual data representation. Overall, this field is crucial for understanding the genetic variation present in tumor samples and can be used in various analyses related to cancer genomics.",
+        "field_sample_values": [
+          0.45033113,
+          0.37837838,
+          0.28813559,
+          0.35294118,
+          0.39285714
+        ],
+        "field_unique_values": "4018 unique values",
+        "field_uniqueness_percent": 34.28
+      },
+      "n_vaf": {
+        "field_data_type": "float64",
+        "field_description": "The column \"n_vaf\" in the \"mutation\" table appears to represent the variant allele frequency (VAF) of mutations observed in a given dataset. The values are expressed as floating-point numbers, indicating the proportion of a specific variant allele relative to the total number of alleles at a particular genomic position. Sample values range from 0.0 to approximately 0.0417, suggesting that this field captures the frequency of mutations that are present in a sample, with 962 unique values indicating a diverse range of mutation frequencies. Despite the declared data type being an integer, the inferred data type is float64, which is more appropriate for representing fractional values like VAF. The uniqueness percent of 8.21 suggests that while there are many unique values, a significant portion of the data may be concentrated around certain frequencies.",
+        "field_sample_values": [
+          0.0,
+          0.02439024,
+          0.02564103,
+          0.04166667,
+          0.01639344
+        ],
+        "field_unique_values": "962 unique values",
+        "field_uniqueness_percent": 8.21
+      },
+      "variant_classification": {
+        "field_data_type": "object",
+        "field_description": "The `variant_classification` column in the `mutation` table likely represents the type of genetic mutation observed in a given sample. Each entry categorizes the mutation based on its effect on the protein, with classifications such as 'frameshift_variant', 'missense_variant', and 'stop_gained', among others. These classifications help in understanding the potential impact of the mutation on gene function and protein structure. The data type is declared as text, indicating that the values are stored as strings. The uniqueness percent of 0.09 suggests that there is a relatively high number of repeated classifications across the dataset.",
+        "field_sample_values": [
+          "frameshift_variant",
+          "missense_variant",
+          "stop_gained",
+          "inframe_deletion",
+          "splice_acceptor_variant"
+        ],
+        "field_unique_values": [
+          "frameshift_variant",
+          "missense_variant",
+          "stop_gained",
+          "inframe_deletion",
+          "splice_acceptor_variant",
+          "protein_altering_variant",
+          "splice_donor_variant",
+          "start_lost",
+          "inframe_insertion",
+          "stop_lost"
+        ],
+        "field_uniqueness_percent": 0.09
+      },
+      "hgvsp_short": {
+        "field_data_type": "object",
+        "field_description": "The column \"hgvsp_short\" in the \"mutation\" table likely represents short descriptions of genetic mutations in protein sequences. The values follow a specific format that indicates the type of mutation, including the original amino acid, its position in the protein, and the resulting amino acid after the mutation. For example, \"p.Q317Rfs*30\" indicates a mutation at position 317 where the amino acid glutamine (Q) is replaced by arginine (R), resulting in a frameshift that leads to a premature stop codon after 30 additional amino acids. The presence of both frameshift mutations (indicated by \"fs\") and missense mutations (indicated by single amino acid substitutions) suggests that this field is used to categorize and describe various types of genetic alterations that may have implications for disease or phenotypic outcomes. The column contains 5205 unique values, indicating a diverse range of mutations represented in the dataset.",
+        "field_sample_values": [
+          "p.Q317Rfs*30",
+          "p.V1371Sfs*77",
+          "p.W288Cfs*12",
+          "p.A82Pfs*15",
+          "p.R882H"
+        ],
+        "field_unique_values": "5205 unique values",
+        "field_uniqueness_percent": 44.41
+      },
+      "gene": {
+        "field_data_type": "object",
+        "field_description": "The \"gene\" column in the \"mutation\" table likely represents unique identifiers for genes, specifically in the format of Ensembl gene IDs. These identifiers, such as 'ENSG00000168769' and 'ENSG00000181163', are used to reference specific genes in genomic databases. With 3333 unique values and a uniqueness percentage of 28.44%, this column indicates that a significant number of mutations may be associated with a smaller subset of genes. The data type is declared as text, suggesting that the values are stored as strings. However, the absence of a provided description means that further context about the specific use or significance of these gene identifiers in relation to mutations may be needed.",
+        "field_sample_values": [
+          "ENSG00000168769",
+          "ENSG00000181163",
+          "ENSG00000184937",
+          "ENSG00000119772",
+          "ENSG00000139083"
+        ],
+        "field_unique_values": "3333 unique values",
+        "field_uniqueness_percent": 28.44
+      },
+      "symbol": {
+        "field_data_type": "object",
+        "field_description": "The \"symbol\" column in the \"mutation\" table likely represents the gene symbols associated with various mutations. Each entry in this column corresponds to a specific gene, indicated by its unique symbol, such as 'TET2', 'NPM1', 'WT1', 'DNMT3A', and 'ETV6'. With 3333 unique values and a uniqueness percentage of 28.44, this column contains a diverse range of gene symbols, suggesting that it captures a wide array of genetic mutations relevant to the dataset. The declared data type is text, indicating that the values are stored as strings. However, no additional description is provided in the data dictionary.",
+        "field_sample_values": [
+          "TET2",
+          "NPM1",
+          "WT1",
+          "DNMT3A",
+          "ETV6"
+        ],
+        "field_unique_values": "3333 unique values",
+        "field_uniqueness_percent": 28.44
+      },
+      "biotype": {
+        "field_data_type": "object",
+        "field_description": "The \"biotype\" column in the \"mutation\" table likely represents the classification of genetic elements based on their biological function or characteristics. The values in this column indicate different types of genes or transcripts, such as \"protein_coding,\" which refers to genes that encode proteins, and various types of immunoglobulin genes (e.g., \"IG_J_gene,\" \"IG_V_gene\"). Other entries like \"nonsense_mediated_decay\" and \"polymorphic_pseudogene\" denote specific processes or gene variants. The presence of diverse biotypes suggests that this column is used to categorize mutations according to the type of genetic material they affect, which can be important for understanding their biological implications.",
+        "field_sample_values": [
+          "protein_coding",
+          "IG_J_gene",
+          "nonsense_mediated_decay",
+          "IG_V_gene",
+          "polymorphic_pseudogene"
+        ],
+        "field_unique_values": [
+          "protein_coding",
+          "IG_J_gene",
+          "nonsense_mediated_decay",
+          "IG_V_gene",
+          "polymorphic_pseudogene",
+          "TR_V_gene",
+          "IG_C_gene",
+          "lincRNA",
+          "processed_transcript",
+          "unprocessed_pseudogene"
+        ],
+        "field_uniqueness_percent": 0.09
+      },
+      "hgvsc": {
+        "field_data_type": "object",
+        "field_description": "The \"hgvsc\" column in the \"mutation\" table likely represents the Human Genome Variation Society (HGVS) nomenclature for describing specific genetic mutations at the cDNA level. Each entry in this column follows a standardized format that includes the transcript identifier (e.g., ENST00000540549.1) followed by a description of the mutation, such as deletions (e.g., \"c.945delC\") or duplications (e.g., \"c.860_863dupTCTG\"). The presence of 5451 unique values indicates a diverse range of mutations recorded in the dataset, with a uniqueness percentage of 46.51%, suggesting that nearly half of the entries are distinct. This field is essential for genetic research and clinical applications, as it provides a standardized way to communicate specific changes in the genetic code.",
+        "field_sample_values": [
+          "ENST00000540549.1:c.945delC",
+          "ENST00000540549.1:c.4111delG",
+          "ENST00000296930.5:c.860_863dupTCTG",
+          "ENST00000332351.3:c.240delG",
+          "ENST00000264709.3:c.2645G>A"
+        ],
+        "field_unique_values": "5451 unique values",
+        "field_uniqueness_percent": 46.51
+      },
+      "hgvsp": {
+        "field_data_type": "object",
+        "field_description": "The \"hgvsp\" column in the \"mutation\" table likely represents the Human Genome Variation Society (HGVS) nomenclature for protein sequence changes resulting from genetic mutations. Each entry in this column follows a specific format that includes an identifier for the protein (e.g., \"ENSP00000442788.1\") followed by a description of the mutation (e.g., \"p.Gln317ArgfsTer30\"). The \"p.\" indicates that the change is at the protein level, with the subsequent notation detailing the specific amino acid change and its consequences, such as frameshift or termination. With 5150 unique values and a uniqueness percentage of 43.94, this column captures a diverse range of protein alterations associated with various mutations.",
+        "field_sample_values": [
+          "ENSP00000442788.1:p.Gln317ArgfsTer30",
+          "ENSP00000442788.1:p.Val1371SerfsTer77",
+          "ENSP00000296930.5:p.Trp288CysfsTer12",
+          "ENSP00000331327.3:p.Ala82ProfsTer15",
+          "ENSP00000264709.3:p.Arg882His"
+        ],
+        "field_unique_values": "5150 unique values",
+        "field_uniqueness_percent": 43.94
+      },
+      "cdna_position": {
+        "field_data_type": "object",
+        "field_description": "The `cdna_position` column in the `mutation` table likely represents the positions of specific mutations within a cDNA sequence. The values are formatted to indicate either a single position (e.g., '1804') or a range of positions (e.g., '1160-1161'), followed by a total length of the cDNA sequence (e.g., '/10166'). This suggests that the first part of the value indicates the position(s) of the mutation, while the second part indicates the total length of the cDNA sequence being referenced. The presence of 5303 unique values indicates a diverse set of mutations recorded in this field, with a uniqueness percentage of 45.24%, suggesting that many positions are repeated across different records.",
+        "field_sample_values": [
+          "1804/10166",
+          "4968/10166",
+          "1160-1161/1758",
+          "525/3122",
+          "2983/4380"
+        ],
+        "field_unique_values": "5303 unique values",
+        "field_uniqueness_percent": 45.24
+      },
+      "cds_position": {
+        "field_data_type": "object",
+        "field_description": "The `cds_position` column in the `mutation` table likely represents the positions of mutations within a coding sequence (CDS) of a gene. The values are formatted as either single positions or ranges, indicating specific nucleotide locations where mutations occur. For example, '944/6009' suggests a mutation at position 944 relative to a total length of 6009 nucleotides, while '859-860/885' indicates a mutation spanning positions 859 to 860 within a sequence of 885 nucleotides. With 5280 unique values and a uniqueness percentage of 45.05, this column captures a diverse range of mutation positions across different sequences.",
+        "field_sample_values": [
+          "944/6009",
+          "4108/6009",
+          "859-860/885",
+          "240/1554",
+          "2645/2739"
+        ],
+        "field_unique_values": "5280 unique values",
+        "field_uniqueness_percent": 45.05
+      },
+      "protein_position": {
+        "field_data_type": "object",
+        "field_description": "The `protein_position` column in the `mutation` table likely represents the positions of amino acids in a protein sequence where mutations occur. Each value appears to be formatted as \"X/Y\", where \"X\" may indicate the position of a specific amino acid in the protein, and \"Y\" could represent the total length of the protein or another relevant reference position. With 5183 unique values and a uniqueness percentage of 44.22%, this column captures a wide range of mutation positions across different instances, suggesting it is used to track variations in protein sequences related to genetic mutations.",
+        "field_sample_values": [
+          "315/2002",
+          "1370/2002",
+          "287/294",
+          "80/517",
+          "882/912"
+        ],
+        "field_unique_values": "5183 unique values",
+        "field_uniqueness_percent": 44.22
+      },
+      "amino_acids": {
+        "field_data_type": "object",
+        "field_description": "The \"amino_acids\" column in the \"mutation\" table likely represents the types of amino acid mutations observed in a biological dataset. Each entry consists of one or more amino acid symbols separated by a slash (\"/\"), indicating the original amino acid and the mutated form. For example, \"S/X\" suggests that serine (S) has been mutated to an unknown or unspecified amino acid (X). With 541 unique values and a uniqueness percentage of 4.62, this column captures a diverse range of mutations, which may be relevant for studies in genetics, molecular biology, or related fields.",
+        "field_sample_values": [
+          "S/X",
+          "G/X",
+          "L/LCX",
+          "L/X",
+          "R/H"
+        ],
+        "field_unique_values": "541 unique values",
+        "field_uniqueness_percent": 4.62
+      },
+      "codons": {
+        "field_data_type": "object",
+        "field_description": "The \"codons\" column in the \"mutation\" table likely represents sequences of nucleotides that correspond to codons, which are the basic units of genetic code. Each entry appears to consist of pairs of codon sequences, possibly indicating variations or mutations in the genetic material. The sample values suggest a format where the first part of the entry may represent a reference codon, while the second part could denote a mutated or alternative codon. With 1003 unique values and a uniqueness percentage of 8.56, this column contains a diverse set of codon sequences, indicating a wide range of genetic variations present in the dataset.",
+        "field_sample_values": [
+          "tCc/tc",
+          "Ggg/gg",
+          "ctc/cTCTGtc",
+          "ctG/ct",
+          "cGc/cAc"
+        ],
+        "field_unique_values": "1003 unique values",
+        "field_uniqueness_percent": 8.56
+      },
+      "existing_variation": {
+        "field_data_type": "object",
+        "field_description": "The `existing_variation` column in the `mutation` table likely represents genetic variation identifiers associated with specific mutations. Each entry in this column appears to contain one or more identifiers, which may include reference SNP (Single Nucleotide Polymorphism) IDs (e.g., 'rs756348991') and COSMIC (Catalogue Of Somatic Mutations In Cancer) IDs (e.g., 'COSM158604'). The presence of multiple identifiers separated by an ampersand (&) suggests that a single mutation can be linked to multiple variations or annotations. With 1961 unique values and a uniqueness percentage of 16.73, this column captures a diverse set of genetic variations, indicating its importance in genetic research or clinical studies related to mutations.",
+        "field_sample_values": [
+          "rs756348991",
+          "rs758959453&COSM158604",
+          "rs147001633&COSM52944&COSM442676",
+          "rs751713049&COSM211504&COSM4169720&COSM211028&COSM211505",
+          "rs267607040&COSM1234973"
+        ],
+        "field_unique_values": "1961 unique values",
+        "field_uniqueness_percent": 16.73
+      },
+      "refseq": {
+        "field_data_type": "object",
+        "field_description": "The \"refseq\" column in the \"mutation\" table likely represents reference sequence identifiers from the RefSeq database, which is a comprehensive collection of curated genomic data. The sample values indicate that this column can contain single RefSeq identifiers (e.g., 'NM_002520.6') as well as multiple identifiers concatenated together (e.g., 'NM_024426.4&NM_024424.3'). The data type is declared as text, and there are 2,893 unique values, suggesting a diverse set of reference sequences related to various mutations. The uniqueness percentage of 24.68 indicates that a significant portion of the entries in this column are repeated across the dataset. Overall, this field is likely used to link mutations to their corresponding reference sequences for further analysis or research.",
+        "field_sample_values": [
+          "NM_002520.6",
+          "NM_024426.4&NM_024424.3",
+          "NM_175629.2",
+          "NM_001987.4",
+          "NM_003016.4"
+        ],
+        "field_unique_values": "2893 unique values",
+        "field_uniqueness_percent": 24.68
+      },
+      "sift": {
+        "field_data_type": "object",
+        "field_description": "The \"sift\" column in the \"mutation\" table likely represents the SIFT (Sorting Intolerant From Tolerant) scores associated with various mutations. SIFT is a bioinformatics tool used to predict whether an amino acid substitution in a protein will affect its function. The values in this column appear to indicate the predicted impact of the mutations, with terms such as \"deleterious\" and \"deleterious_low_confidence\" followed by a score in parentheses. The score indicates the confidence level of the prediction, where lower values suggest a higher likelihood of the mutation being harmful. With 176 unique values, this column captures a range of predictions regarding the functional impact of different mutations.",
+        "field_sample_values": [
+          "deleterious(0)",
+          "deleterious(0.04)",
+          "deleterious_low_confidence(0)",
+          "deleterious_low_confidence(0.01)",
+          "deleterious(0.02)"
+        ],
+        "field_unique_values": "176 unique values",
+        "field_uniqueness_percent": 1.5
+      },
+      "polyphen": {
+        "field_data_type": "object",
+        "field_description": "The \"polyphen\" column in the \"mutation\" table likely represents the predicted impact of genetic mutations on protein function, as assessed by the PolyPhen (Polymorphism Phenotyping) tool. The values in this column indicate the classification of mutations, with terms such as \"probably_damaging\" and \"possibly_damaging\" followed by a numerical score in parentheses. This score ranges from 0 to 1, where higher values suggest a greater likelihood that the mutation is harmful to protein function. The presence of 787 unique values indicates a diverse set of predictions, while the uniqueness percent of 6.71 suggests that many entries share similar classifications. Overall, this field is essential for understanding the potential biological significance of various mutations.",
+        "field_sample_values": [
+          "probably_damaging(0.993)",
+          "probably_damaging(0.995)",
+          "probably_damaging(1)",
+          "possibly_damaging(0.506)",
+          "probably_damaging(0.998)"
+        ],
+        "field_unique_values": "787 unique values",
+        "field_uniqueness_percent": 6.71
+      },
+      "exac_af": {
+        "field_data_type": "float64",
+        "field_description": "The column \"exac_af\" in the \"mutation\" table likely represents the allele frequency of genetic variants as observed in the Exome Aggregation Consortium (ExAC) database. The values are expressed as floating-point numbers, indicating the proportion of a specific allele in a given population. For example, a value of 3.73e-05 suggests that the allele occurs in approximately 0.0000373 or 0.00373% of the population sampled. With 497 unique values and a uniqueness percentage of 4.24, this column captures a range of allele frequencies across different genetic mutations, providing insights into their prevalence in the studied population.",
+        "field_sample_values": [
+          3.73e-05,
+          8.29e-06,
+          0.000593,
+          0.000125,
+          1.65e-05
+        ],
+        "field_unique_values": "497 unique values",
+        "field_uniqueness_percent": 4.24
+      }
+    }
+  },
+  "fusion": {
+    "table_description": "The \"fusion\" table stores information about genetic fusions identified in samples, including unique identifiers for each fusion event, associated sample IDs, and the specific consensus fusion genes detected. This data is essential for analyzing genetic alterations related to various conditions, particularly in cancer research.",
+    "fields": {
+      "fusion_id": {
+        "field_data_type": "int64",
+        "field_description": "The `fusion_id` column in the `fusion` table is an integer field that serves as a unique identifier for each record in the table. With 942 unique values and a uniqueness percentage of 100.0, it ensures that each entry can be distinctly identified. This column likely represents a specific fusion entity or record, allowing for efficient data retrieval and management within the database.",
+        "field_sample_values": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "field_unique_values": "942 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "sample_id": {
+        "field_data_type": "object",
+        "field_description": "The `sample_id` column in the `fusion` table contains unique identifiers for DNA/RNA sequencing specimens, as indicated by its description in the data dictionary. Each identifier is a text string, such as 'BA2102D' or 'BA2005D', and there are a total of 942 unique values in this column, ensuring that each sample is distinctly represented. This uniqueness is crucial for accurately tracking and referencing individual specimens in research and analysis related to genomic studies.",
+        "field_sample_values": [
+          "BA2102D",
+          "BA2005D",
+          "BA3074D",
+          "BA2555D",
+          "BA3073R"
+        ],
+        "field_unique_values": "942 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "consensus_aml_fusions": {
+        "field_data_type": "object",
+        "field_description": "The column \"consensus_aml_fusions\" in the \"fusion\" table contains text entries representing various cytogenetic fusions commonly associated with Acute Myeloid Leukemia (AML). Each entry corresponds to a specific fusion gene identified through manual review of clinical cytogenetic testing and RNA sequencing (RNAseq). The unique values in this column include notable fusions such as DEK-NUP214, PML-RARA, and BCR-ABL1, among others. The uniqueness percentage of 85% indicates that while there are several distinct fusion types recorded, some may appear multiple times within the dataset. This field is essential for understanding the genetic landscape of AML and may aid in diagnosis and treatment planning.",
+        "field_sample_values": [
+          "DEK-NUP214",
+          "KMT2A_re",
+          "CBFB-MYH11",
+          "PML-RARA",
+          "RUNX1-RUNX1T1"
+        ],
+        "field_unique_values": [
+          "DEK-NUP214",
+          "KMT2A_re",
+          "CBFB-MYH11",
+          "PML-RARA",
+          "RUNX1-RUNX1T1",
+          "MLLT3-KMT2A",
+          "GATA2-MECOM",
+          "BCR-ABL1"
+        ],
+        "field_uniqueness_percent": 0.85
+      }
+    }
+  },
+  "treatment": {
+    "table_description": "The \"treatment\" table stores detailed information about various treatment regimens administered to patients, including the types and stages of treatments, responses to induction therapies, and the duration of treatments. It captures both quantitative metrics and descriptive lists related to chemotherapy and other treatment modalities, facilitating analysis of treatment patterns and outcomes.",
+    "fields": {
+      "treatment_id": {
+        "field_data_type": "int64",
+        "field_description": "The `treatment_id` field in the `treatment` table is an identifier for different treatment records. It is represented as an integer (int64) in the database, with sample values ranging from 1 to 5 and a total of 805 unique identifiers, indicating that each treatment record is distinct. Although the declared data type is text, the actual data type used in the database suggests it is stored as an integer. This field likely serves as a primary key or unique identifier for treatments, allowing for efficient referencing and management of treatment-related data.",
+        "field_sample_values": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "field_unique_values": "805 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "patient_id": {
+        "field_data_type": "int64",
+        "field_description": "The `patient_id` column in the `treatment` table represents a unique identifier assigned to each patient in the database. Although the declared data type is text, the inferred data type is an integer (int64), indicating that the identifiers are stored as numeric values. Each `patient_id` is unique, with a total of 805 distinct values, ensuring that no two patients share the same identifier. This unique dbGaP identifier is essential for tracking and managing patient-related data within the treatment records.",
+        "field_sample_values": [
+          2476,
+          2157,
+          2053,
+          2269,
+          2295
+        ],
+        "field_unique_values": "805 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "number_unique_treatment_types": {
+        "field_data_type": "float64",
+        "field_description": "The column \"number_unique_treatment_types\" in the \"treatment\" table represents the count of distinct treatment types available for a specific disease instance. The data is stored as a decimal (float64) and can include values such as 0.0, 1.0, 2.0, 3.0, 4.0, and 6.0, indicating the number of unique treatment options. With a uniqueness percentage of 75%, this column captures a diverse range of treatment types, reflecting the variability in treatment approaches for different disease instances.",
+        "field_sample_values": [
+          3.0,
+          1.0,
+          6.0,
+          2.0,
+          4.0
+        ],
+        "field_unique_values": [
+          3.0,
+          1.0,
+          6.0,
+          2.0,
+          4.0,
+          0.0
+        ],
+        "field_uniqueness_percent": 0.75
+      },
+      "list_unique_treatment_types": {
+        "field_data_type": "object",
+        "field_description": "The column \"list_unique_treatment_types\" in the \"treatment\" table contains a concatenated list of different treatment types applicable to a specific disease instance. Each entry in this column represents various treatment modalities that may be used, separated by the \"|\" character. The treatments include options such as Standard Chemotherapy, Bone Marrow Transplant, Targeted Therapy, and Supportive/Palliative Care, among others. This field is designed to capture the diversity of treatment approaches that a patient may receive, allowing for a comprehensive overview of their treatment plan. The data type is text, indicating that the values are stored as strings. The uniqueness percent of 5.22 suggests that there is a relatively low variety of unique combinations of treatment types within the dataset.",
+        "field_sample_values": [
+          "Standard Chemotherapy|Bone Marrow Transplant|Targeted Therapy - Kinase Inhibitor(s)",
+          "Standard Chemotherapy",
+          "Standard Chemotherapy|Intrathecal|Targeted Therapy - Other",
+          "DLI|Standard Chemotherapy|Bone Marrow Transplant|Targeted Therapy - Kinase Inhibitor(s)|Intrathecal|Targeted Therapy - Other",
+          "Standard Chemotherapy|Supportive/Palliative Care|Targeted Therapy - Kinase Inhibitor(s)"
+        ],
+        "field_unique_values": [
+          "Standard Chemotherapy|Bone Marrow Transplant|Targeted Therapy - Kinase Inhibitor(s)",
+          "Standard Chemotherapy",
+          "Standard Chemotherapy|Intrathecal|Targeted Therapy - Other",
+          "DLI|Standard Chemotherapy|Bone Marrow Transplant|Targeted Therapy - Kinase Inhibitor(s)|Intrathecal|Targeted Therapy - Other",
+          "Standard Chemotherapy|Supportive/Palliative Care|Targeted Therapy - Kinase Inhibitor(s)",
+          "Standard Chemotherapy|Targeted Therapy - Kinase Inhibitor(s)",
+          "Standard Chemotherapy|Bone Marrow Transplant|Intrathecal|Targeted Therapy - Kinase Inhibitor(s)",
+          "DLI|Standard Chemotherapy|Bone Marrow Transplant|Supportive/Palliative Care",
+          "Standard Chemotherapy|Bone Marrow Transplant",
+          "Targeted Therapy - Kinase Inhibitor(s)",
+          "DLI|Standard Chemotherapy|Bone Marrow Transplant",
+          "Supportive/Palliative Care",
+          "DLI|Standard Chemotherapy|Bone Marrow Transplant|Other",
+          "Standard Chemotherapy|Supportive/Palliative Care",
+          "Standard Chemotherapy|Bone Marrow Transplant|Intrathecal",
+          "Standard Chemotherapy|Bone Marrow Transplant|Targeted Therapy - Other|Targeted Therapy - Kinase Inhibitor(s)",
+          "Targeted Therapy - Other",
+          "Standard Chemotherapy|Bone Marrow Transplant|Supportive/Palliative Care",
+          "Standard Chemotherapy|Bone Marrow Transplant|Targeted Therapy - Other",
+          "Unknown",
+          "Standard Chemotherapy|Targeted Therapy - Other",
+          "Standard Chemotherapy|Unknown|Bone Marrow Transplant",
+          "Standard Chemotherapy|Supportive/Palliative Care|Targeted Therapy - Other",
+          "Standard Chemotherapy|Bone Marrow Transplant|Other",
+          "Standard Chemotherapy|Targeted Therapy - Kinase Inhibitor(s)|Targeted Therapy - Other",
+          "Standard Chemotherapy|Supportive/Palliative Care|Intrathecal",
+          "Standard Chemotherapy|Unknown",
+          "Standard Chemotherapy|Intrathecal",
+          "Supportive/Palliative Care|Targeted Therapy - Other",
+          "Standard Chemotherapy|Supportive/Palliative Care|Targeted Therapy - Kinase Inhibitor(s)|Targeted Therapy - Other|Bone Marrow Transplant",
+          "Standard Chemotherapy|Targeted Therapy - Other|Targeted Therapy - Kinase Inhibitor(s)",
+          "Standard Chemotherapy|Targeted Therapy - Other|Intrathecal",
+          "DLI|Standard Chemotherapy|Bone Marrow Transplant|Targeted Therapy - Other",
+          "Standard Chemotherapy|Other",
+          "Standard Chemotherapy|Bone Marrow Transplant|Intrathecal|Other",
+          "DLI|Standard Chemotherapy|Bone Marrow Transplant|Targeted Therapy - Kinase Inhibitor(s)",
+          "Supportive/Palliative Care|Other",
+          "Bone Marrow Transplant|Targeted Therapy - Other",
+          "Targeted Therapy - Kinase Inhibitor(s)|Targeted Therapy - Other",
+          "Standard Chemotherapy|Bone Marrow Transplant|Supportive/Palliative Care|Targeted Therapy - Kinase Inhibitor(s)",
+          "Standard Chemotherapy|Bone Marrow Transplant|Intrathecal|Targeted Therapy - Other",
+          "Supportive/Palliative Care|Targeted Therapy - Kinase Inhibitor(s)"
+        ],
+        "field_uniqueness_percent": 5.22
+      },
+      "number_unique_chemotherapy_treatment_regimens": {
+        "field_data_type": "float64",
+        "field_description": "The column \"number_unique_chemotherapy_treatment_regimens\" in the \"treatment\" table represents the count of distinct chemotherapy treatment regimens available for a specific disease instance. Although the data type is inferred as float64, it is declared as an integer, indicating that this field should only contain whole numbers. Sample values range from 0.0 to 13.0, reflecting the variety of treatment options that may be prescribed. The uniqueness percentage of 1.37 suggests that there are many repeated values across different records, indicating that certain regimens are more common than others.",
+        "field_sample_values": [
+          6.0,
+          4.0,
+          13.0,
+          3.0,
+          5.0
+        ],
+        "field_unique_values": [
+          6.0,
+          4.0,
+          13.0,
+          3.0,
+          5.0,
+          9.0,
+          7.0,
+          8.0,
+          0.0,
+          1.0,
+          2.0
+        ],
+        "field_uniqueness_percent": 1.37
+      },
+      "list_unique_chemotherapy_treatment_regimens": {
+        "field_data_type": "object",
+        "field_description": "The column \"list_unique_chemotherapy_treatment_regimens\" in the \"treatment\" table contains a concatenated list of unique chemotherapy treatment regimens associated with specific disease instances. Each entry in this column is represented as a string, where different treatment regimens are separated by the pipe character (\"|\"). The regimens may include various chemotherapy drugs and combinations, reflecting the diverse treatment options available for patients. With 497 unique values, this column captures a wide range of treatment approaches, indicating a significant level of variability in chemotherapy regimens used. The uniqueness percentage of 61.74 suggests that while there are many distinct regimens, some may be repeated across different entries.",
+        "field_sample_values": [
+          "7+3 (Cytarabine, Idarubicin)|HiDAC|Fludarabine, TBI|Sorafenib|Hydroxyurea|Decitabine",
+          "7+3 (Cytarabine, Idarubicin)|HiDAC|FLAG-IDA (Cytarabine, Filgrastim, Fludarabine, Idarubicin)|MEC (Cytarabine, Etoposide, Mitoxantrone)",
+          "7+3 (Cytarabine, Idarubicin)|MiDAC|Quizartinib|Cytarabine, Methotrexate",
+          "Cyclophosphamide, TBI|HAM (Cytarabine, Mitoxantrone)|MEC (Cytarabine, Etoposide, Mitoxantrone)|Decitabine|Cytarabine, Mitoxantrone, Sorafenib|ADE (Cytarabine, Daunorubicin & Etoposide)|Donor Lymphocyte Infusion|Cytarabine|Sorafenib|FLAG (Fludarabine, High-dose Cytarabine, G-CSF)|Treo/Flu/TBI (Treosulfan, Fludarabine, Total Body Irradiation)|Methotrexate|Etoposide, Cytarabine",
+          "Decitabine|Quizartinib|Mitoxantrone"
+        ],
+        "field_unique_values": "497 unique values",
+        "field_uniqueness_percent": 61.74
+      },
+      "number_unique_treatment_stages": {
+        "field_data_type": "float64",
+        "field_description": "The column \"number_unique_treatment_stages\" in the \"treatment\" table represents the count of distinct treatment stages associated with a specific disease instance. This field is defined as a decimal type and is stored as a float64 in the database. Sample values indicate that the number of unique treatment stages can range from 0.0 to 8.0, with unique values including 0.0 through 8.0. The uniqueness percentage of 1.12 suggests that there is a relatively low level of repetition among the values in this column, indicating a diverse range of treatment stages across different disease instances.",
+        "field_sample_values": [
+          5.0,
+          4.0,
+          3.0,
+          8.0,
+          7.0
+        ],
+        "field_unique_values": [
+          5.0,
+          4.0,
+          3.0,
+          8.0,
+          7.0,
+          0.0,
+          1.0,
+          6.0,
+          2.0
+        ],
+        "field_uniqueness_percent": 1.12
+      },
+      "list_unique_treatment_stages": {
+        "field_data_type": "object",
+        "field_description": "The column \"list_unique_treatment_stages\" in the \"treatment\" table contains a concatenated list of unique treatment stages associated with specific disease instances. Each entry in this column represents various stages of treatment, separated by the \"|\" character. The stages may include terms such as \"Consolidation,\" \"Induction,\" \"Experimental,\" and others, indicating different phases or types of treatment that a patient may undergo. With 212 unique values and a uniqueness percentage of 26.34, this column captures a diverse range of treatment pathways, reflecting the complexity and variability in treatment approaches for the disease being studied.",
+        "field_sample_values": [
+          "Consolidation|Induction|Experimental|Re-induction|Allogeneic - Matched Unrelated Donor",
+          "Consolidation|Salvage|Induction|Re-induction",
+          "Consolidation|Induction|Supportive/Palliative Care",
+          "Allogeneic - Sibling|Consolidation|Unknown|Induction|Experimental|Intensification|Re-induction|Allogeneic - Matched Unrelated Donor",
+          "Induction|Experimental|Supportive/Palliative Care"
+        ],
+        "field_unique_values": "212 unique values",
+        "field_uniqueness_percent": 26.34
+      },
+      "response_to_induction_tx": {
+        "field_data_type": "object",
+        "field_description": "The column \"response_to_induction_tx\" in the \"treatment\" table captures the treatment response of patients following their initial induction therapy. This field is represented as text and includes various responses such as \"Complete Response,\" \"Refractory,\" and \"Unknown,\" indicating the effectiveness of the treatment. The presence of variations like \"Complete Response i\" and different casing for \"UNKNOWN\" suggests that the data may have inconsistencies in formatting. Overall, this column is essential for understanding how patients responded to their first treatment during the induction stage.",
+        "field_sample_values": [
+          "Complete Response",
+          "Refractory",
+          "Unknown",
+          "Complete Response i",
+          "UNKNOWN"
+        ],
+        "field_unique_values": [
+          "Complete Response",
+          "Refractory",
+          "Unknown",
+          "Complete Response i",
+          "UNKNOWN",
+          "unknown"
+        ],
+        "field_uniqueness_percent": 0.75
+      },
+      "type_induction_tx": {
+        "field_data_type": "object",
+        "field_description": "The column \"type_induction_tx\" in the \"treatment\" table represents the type of treatment administered during the induction phase for patients. This field captures the first treatment record associated with a stage of induction and includes various treatment modalities such as 'Standard Chemotherapy', 'Targeted Therapy - Kinase Inhibitor(s)', 'Supportive/Palliative Care', and 'Targeted Therapy - Other'. The data type is text, indicating that the values are descriptive labels rather than numerical or categorical codes. The uniqueness percentage of 0.5 suggests that there is a moderate variety of treatment types recorded in this field.",
+        "field_sample_values": [
+          "Standard Chemotherapy",
+          "Targeted Therapy - Kinase Inhibitor(s)",
+          "Supportive/Palliative Care",
+          "Targeted Therapy - Other"
+        ],
+        "field_unique_values": [
+          "Standard Chemotherapy",
+          "Targeted Therapy - Kinase Inhibitor(s)",
+          "Supportive/Palliative Care",
+          "Targeted Therapy - Other"
+        ],
+        "field_uniqueness_percent": 0.5
+      },
+      "response_duration_to_induction_tx": {
+        "field_data_type": "float64",
+        "field_description": "The column \"response_duration_to_induction_tx\" in the \"treatment\" table represents the number of days between the start and end dates of the first treatment record identified for a patient that has a stage of induction. The values are stored as decimal numbers, indicating the duration in days, and the data type is inferred to be a float64. This column contains 84 unique values, with approximately 10.43% of the entries being unique, suggesting a range of response durations among patients. Sample values include durations such as 2.0, 6.0, 9.0, 1025.0, and 5.0 days.",
+        "field_sample_values": [
+          2.0,
+          6.0,
+          9.0,
+          1025.0,
+          5.0
+        ],
+        "field_unique_values": "84 unique values",
+        "field_uniqueness_percent": 10.43
+      },
+      "most_recent_treatment_type": {
+        "field_data_type": "object",
+        "field_description": "The column \"most_recent_treatment_type\" in the \"treatment\" table represents the type of treatment that a patient most recently received, as determined by the start date of the treatment. The data is stored as text and includes various treatment categories such as targeted therapies, standard chemotherapy, supportive care, and bone marrow transplants, among others. The uniqueness percent of 1.24 indicates that there is a diverse range of treatment types recorded, with several unique values present in the dataset.",
+        "field_sample_values": [
+          "Targeted Therapy - Kinase Inhibitor(s)",
+          "Standard Chemotherapy",
+          "Targeted Therapy - Other",
+          "Supportive/Palliative Care",
+          "Bone Marrow Transplant"
+        ],
+        "field_unique_values": [
+          "Targeted Therapy - Kinase Inhibitor(s)",
+          "Standard Chemotherapy",
+          "Targeted Therapy - Other",
+          "Supportive/Palliative Care",
+          "Bone Marrow Transplant",
+          "DLI",
+          "NONE",
+          "Unknown",
+          "Other",
+          "Intrathecal"
+        ],
+        "field_uniqueness_percent": 1.24
+      },
+      "current_regimen": {
+        "field_data_type": "object",
+        "field_description": "The \"current_regimen\" column in the \"treatment\" table represents the specific treatment regimen that a patient is currently undergoing. This regimen is determined based on the most recent start date of treatment. The data type is text, indicating that the values are descriptive names of various treatment protocols. Sample values include medications and combinations such as \"Sorafenib\" and \"FLAG-IDA (Cytarabine, Filgrastim, Fludarabine, Idarubicin).\" With 145 unique values and a uniqueness percentage of 18.01, this column captures a diverse range of treatment options used in patient care.",
+        "field_sample_values": [
+          "Sorafenib",
+          "FLAG-IDA (Cytarabine, Filgrastim, Fludarabine, Idarubicin)",
+          "Quizartinib",
+          "Mitoxantrone",
+          "AC220 (Ambit)"
+        ],
+        "field_unique_values": "145 unique values",
+        "field_uniqueness_percent": 18.01
+      },
+      "current_stage": {
+        "field_data_type": "object",
+        "field_description": "The \"current_stage\" column in the \"treatment\" table represents the stage of the most current treatment a patient is undergoing, as determined by the treatment's start date. This field is categorized as text and includes various unique values that describe different treatment stages, such as 'Experimental', 'Salvage', 'Supportive/Palliative Care', and others. The uniqueness percentage of 2.48 indicates that there are many distinct stages recorded, reflecting a diverse range of treatment approaches.",
+        "field_sample_values": [
+          "Experimental",
+          "Salvage",
+          "Supportive/Palliative Care",
+          "Re-induction",
+          "Allogeneic - Sibling"
+        ],
+        "field_unique_values": [
+          "Experimental",
+          "Salvage",
+          "Supportive/Palliative Care",
+          "Re-induction",
+          "Allogeneic - Sibling",
+          "Allogeneic - Matched Unrelated Donor",
+          "Unknown",
+          "Consolidation",
+          "NONE",
+          "Induction",
+          "Symptom Control",
+          "Maintenance",
+          "Hypomethylating/Low Dose Cytarabine",
+          "Intensification",
+          "Allogeneic - Mismatched Unrelated Donor",
+          "Post-Transplant Relapse",
+          "Allogeneic - Child",
+          "Double Umbilical Cord Blood Transplant (DUCBT)",
+          "CNS",
+          "Haploidentical - Parent"
+        ],
+        "field_uniqueness_percent": 2.48
+      },
+      "most_recent_treatment_duration": {
+        "field_data_type": "float64",
+        "field_description": "The column \"most_recent_treatment_duration\" in the \"treatment\" table represents the duration, in days, of the most current treatment received by a patient. This duration is calculated as the difference between the start and end dates of the treatment, with the start date being the determining factor. The data type for this column is a decimal, and it contains a variety of values, indicating that treatment durations can vary significantly among patients. With 144 unique values and a uniqueness percentage of 17.89%, this field captures a range of treatment lengths, reflecting the diverse experiences of patients in the database.",
+        "field_sample_values": [
+          99.0,
+          43.0,
+          164.0,
+          187.0,
+          18.0
+        ],
+        "field_unique_values": "144 unique values",
+        "field_uniqueness_percent": 17.89
+      }
+    }
+  },
+  "clinical_outcome": {
+    "table_description": "The `clinical_outcome` table stores data related to patient outcomes in a clinical setting. It includes information on patient survival status, overall survival duration, and causes of death, facilitating analysis of treatment effectiveness and patient prognosis.",
+    "fields": {
+      "outcome_id": {
+        "field_data_type": "int64",
+        "field_description": "The `outcome_id` column in the `clinical_outcome` table is an integer field that serves as a unique identifier for different clinical outcomes recorded in the database. With a total of 805 unique values, each `outcome_id` corresponds to a specific clinical outcome, ensuring that every entry in this column is distinct. The uniqueness of the values indicates that this column is likely used to categorize or reference various outcomes in clinical studies or patient records, facilitating data organization and retrieval. Sample values such as 1, 2, 3, 4, and 5 suggest a structured enumeration of these outcomes.",
+        "field_sample_values": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "field_unique_values": "805 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "patient_id": {
+        "field_data_type": "int64",
+        "field_description": "The `patient_id` column in the `clinical_outcome` table is an integer field that uniquely identifies each patient within the dataset. With 805 unique values and a uniqueness percentage of 100.0, it indicates that each patient is represented by a distinct identifier, ensuring that there are no duplicate entries for any individual. This column is essential for tracking clinical outcomes and linking patient-related data across various records in the database. Sample values such as 2476, 2157, and 2053 illustrate the format of these identifiers.",
+        "field_sample_values": [
+          2476,
+          2157,
+          2053,
+          2269,
+          2295
+        ],
+        "field_unique_values": "805 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "vital_status": {
+        "field_data_type": "object",
+        "field_description": "The \"vital_status\" column in the \"clinical_outcome\" table indicates the current health status of individuals in the dataset. It categorizes individuals into three possible states: \"Dead,\" \"Alive,\" or \"Unknown.\" The presence of these values suggests that the column is used to track whether individuals have passed away, are still living, or if their status is not determined. With a uniqueness percentage of 0.37, it indicates that a significant portion of the entries may share the same status, reflecting common outcomes among the individuals recorded.",
+        "field_sample_values": [
+          "Dead",
+          "Unknown",
+          "Alive"
+        ],
+        "field_unique_values": [
+          "Dead",
+          "Unknown",
+          "Alive"
+        ],
+        "field_uniqueness_percent": 0.37
+      },
+      "overall_survival": {
+        "field_data_type": "int64",
+        "field_description": "The \"overall_survival\" column in the \"clinical_outcome\" table likely represents the duration of survival for patients, measured in days. The values are integers, indicating the number of days each patient has survived since a specific point in their treatment or diagnosis. With 578 unique values and a uniqueness percentage of 71.8%, this column captures a diverse range of survival durations across different patients, reflecting variations in clinical outcomes.",
+        "field_sample_values": [
+          1463,
+          595,
+          511,
+          1655,
+          1264
+        ],
+        "field_unique_values": "578 unique values",
+        "field_uniqueness_percent": 71.8
+      },
+      "cause_of_death": {
+        "field_data_type": "object",
+        "field_description": "The column \"cause_of_death\" in the \"clinical_outcome\" table likely represents the classification of patient outcomes related to mortality. The values indicate whether a patient is deceased or alive, along with specific categories for the cause of death when applicable. The sample values include various reasons for death, such as disease, unknown causes, treatment-related issues, and a catch-all category for other causes. The presence of the \"Alive\" status suggests that this column also tracks living patients. With a uniqueness percentage of 0.62, it indicates that a significant portion of the entries in this column are not unique, reflecting common outcomes among the patient population.",
+        "field_sample_values": [
+          "Dead-Disease",
+          "Dead-Unknown",
+          "Dead-Treatment",
+          "Alive",
+          "Dead-Other"
+        ],
+        "field_unique_values": [
+          "Dead-Disease",
+          "Dead-Unknown",
+          "Dead-Treatment",
+          "Alive",
+          "Dead-Other"
+        ],
+        "field_uniqueness_percent": 0.62
+      }
+    }
+  },
+  "labreports": {
+    "table_description": "The `labreports` table stores hematological and biochemical data from laboratory reports, including various blood cell percentages, enzyme levels, and surface antigen profiles. This data is essential for diagnosing and monitoring hematological conditions and diseases.",
+    "fields": {
+      "labreport_id": {
+        "field_data_type": "int64",
+        "field_description": "The `labreport_id` field in the `labreports` table likely represents a unique identifier for each laboratory report. This identifier is stored as an integer (int64) but is declared as text in the data dictionary. Each `labreport_id` is unique, with a total of 942 distinct values, indicating that every laboratory report can be distinctly referenced by its corresponding ID. This field is essential for tracking and managing individual lab reports within the database.",
+        "field_sample_values": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "field_unique_values": "942 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "sample_id": {
+        "field_data_type": "object",
+        "field_description": "The \"sample_id\" column in the \"labreports\" table contains unique identifiers for DNA or RNA sequencing specimens. Each identifier, such as 'BA2102D' or 'BA2005D', is a distinct dbGaP (database of Genotypes and Phenotypes) identifier, ensuring that each sample can be uniquely referenced. With a total of 942 unique values and a uniqueness percentage of 100.0, this field is essential for tracking and managing individual specimens in genetic research and analysis. The data type is classified as text, indicating that the identifiers are alphanumeric strings.",
+        "field_sample_values": [
+          "BA2102D",
+          "BA2005D",
+          "BA3074D",
+          "BA2555D",
+          "BA3073R"
+        ],
+        "field_unique_values": "942 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "cebpa_biallelic": {
+        "field_data_type": "object",
+        "field_description": "The column \"cebpa_biallelic\" in the \"labreports\" table indicates whether the CEBPA variant is biallelic or monoallelic. It contains two possible values: 'bi' for biallelic, meaning that both alleles of the gene have the variant, and 'mono' for monoallelic, indicating that only one allele has the variant. The data type is text, and the uniqueness percent suggests that this field has a relatively low variety of values, with only two unique options. This field is important for understanding the genetic variation in the CEBPA gene as reported in lab results.",
+        "field_sample_values": [
+          "bi",
+          "mono"
+        ],
+        "field_unique_values": [
+          "bi",
+          "mono"
+        ],
+        "field_uniqueness_percent": 0.21
+      },
+      "percentage_basophils_in_pb": {
+        "field_data_type": "float64",
+        "field_description": "The column \"percentage_basophils_in_pb\" in the \"labreports\" table represents the percentage of basophils present in a sample of peripheral blood. Basophils are a type of white blood cell that play a role in the immune response. The values in this column are recorded as floating-point numbers, indicating the proportion of basophils relative to the total white blood cell count. The data type is inferred to be float64, although it is declared as text in the data dictionary. Sample values range from 0.0 to 18.0, reflecting the variability in basophil counts among different individuals or samples. The uniqueness percentage of 4.03 suggests that there are a limited number of distinct values in this column, indicating that many samples may have similar basophil percentages.",
+        "field_sample_values": [
+          0.0,
+          1.0,
+          2.0,
+          5.0,
+          1.4
+        ],
+        "field_unique_values": [
+          0.0,
+          1.0,
+          2.0,
+          5.0,
+          1.4,
+          3.0,
+          11.0,
+          18.0,
+          1.8,
+          0.9,
+          6.0,
+          0.8,
+          2.6,
+          1.7,
+          0.1,
+          3.2,
+          0.5,
+          0.6,
+          6.1,
+          0.3,
+          8.0,
+          7.6,
+          0.4,
+          0.2,
+          10.8,
+          1.5,
+          1.1,
+          3.6,
+          1.6,
+          4.5,
+          0.7,
+          1.3,
+          3.7,
+          3.5,
+          4.3,
+          2.1,
+          2.5,
+          3.4
+        ],
+        "field_uniqueness_percent": 4.03
+      },
+      "percentage_blasts_in_bm": {
+        "field_data_type": "object",
+        "field_description": "The column \"percentage_blasts_in_bm\" in the \"labreports\" table represents the percentage of blast cells found in the bone marrow, which is a critical measure in hematology. Blast cells are immature blood cells, and their percentage can be indicative of various medical conditions, including leukemia. The values in this column are stored as strings (object data type), with sample values such as '85', '93', '90', '97', and '92', reflecting the percentage of blasts in the bone marrow for different lab reports. There are 136 unique values recorded, suggesting a diverse range of results across the dataset.",
+        "field_sample_values": [
+          "85",
+          "93",
+          "90",
+          "97",
+          "92"
+        ],
+        "field_unique_values": "136 unique values",
+        "field_uniqueness_percent": 14.44
+      },
+      "percentage_blasts_in_pb": {
+        "field_data_type": "object",
+        "field_description": "The column \"percentage_blasts_in_pb\" in the \"labreports\" table represents the percentage of blast cells found in the peripheral blood. Blast cells are immature blood cells that can indicate various medical conditions, including certain types of leukemia. The data type is recorded as an object, suggesting that the values are stored as strings, with sample values such as '90', '48', '30', '66', and '77'. There are 131 unique values in this column, indicating a diverse range of percentages reported in the lab results. The uniqueness percent of 13.91 suggests that a significant number of records share similar values.",
+        "field_sample_values": [
+          "90",
+          "48",
+          "30",
+          "66",
+          "77"
+        ],
+        "field_unique_values": "131 unique values",
+        "field_uniqueness_percent": 13.91
+      },
+      "percentage_eosinophils_in_pb": {
+        "field_data_type": "float64",
+        "field_description": "The column \"percentage_eosinophils_in_pb\" in the \"labreports\" table represents the percentage of eosinophils present in the peripheral blood. Eosinophils are a type of white blood cell that play a key role in the body's immune response, particularly in combating allergies and parasitic infections. The values in this column are stored as floating-point numbers (float64) and can range from 0.0 to higher percentages, with a total of 57 unique values observed in the dataset. The uniqueness percent of 6.05 indicates that there is a relatively low level of variation among the recorded percentages.",
+        "field_sample_values": [
+          0.0,
+          0.8,
+          3.0,
+          1.0,
+          5.0
+        ],
+        "field_unique_values": "57 unique values",
+        "field_uniqueness_percent": 6.05
+      },
+      "percentage_immature_granulocytes_in_pb": {
+        "field_data_type": "float64",
+        "field_description": "The column \"percentage_immature_granulocytes_in_pb\" in the \"labreports\" table represents the percentage of immature granulocytes present in the peripheral blood. Immature granulocytes are a type of white blood cell that can indicate various health conditions when found in elevated levels. The values in this column are expressed as floating-point numbers (float64), with sample values ranging from 0.0 to 8.9%. This data is likely used to assess a patient's immune response or to diagnose potential infections or other medical conditions. The column contains 54 unique values, indicating a diverse range of measurements across different lab reports.",
+        "field_sample_values": [
+          0.4,
+          0.0,
+          0.5,
+          1.0,
+          8.9
+        ],
+        "field_unique_values": "54 unique values",
+        "field_uniqueness_percent": 5.73
+      },
+      "percentage_lymphocytes_in_pb": {
+        "field_data_type": "float64",
+        "field_description": "The column \"percentage_lymphocytes_in_pb\" in the \"labreports\" table represents the percentage of lymphocytes present in the peripheral blood. Lymphocytes are a type of white blood cell that play a crucial role in the immune system. This field is recorded as a floating-point number (float64) and contains a variety of values, indicating the proportion of lymphocytes in blood samples taken from patients. With 309 unique values and a uniqueness percentage of 32.8%, this data likely reflects a range of lymphocyte levels across different individuals or conditions.",
+        "field_sample_values": [
+          7.0,
+          59.4,
+          75.6,
+          21.6,
+          46.0
+        ],
+        "field_unique_values": "309 unique values",
+        "field_uniqueness_percent": 32.8
+      },
+      "percentage_monocytes_in_pb": {
+        "field_data_type": "float64",
+        "field_description": "The column \"percentage_monocytes_in_pb\" in the \"labreports\" table represents the percentage of monocytes present in a sample of peripheral blood. Monocytes are a type of white blood cell that play a crucial role in the immune system. The values in this column are expressed as floating-point numbers (float64), indicating the proportion of monocytes relative to the total white blood cell count in the blood sample. The sample values range from 1.9% to 30.0%, with a total of 221 unique values recorded, reflecting the variability in monocyte levels among different individuals or samples.",
+        "field_sample_values": [
+          2.0,
+          1.9,
+          18.9,
+          4.5,
+          30.0
+        ],
+        "field_unique_values": "221 unique values",
+        "field_uniqueness_percent": 23.46
+      },
+      "percentage_neutrophils_in_pb": {
+        "field_data_type": "float64",
+        "field_description": "The column \"percentage_neutrophils_in_pb\" in the \"labreports\" table represents the percentage of neutrophils present in the peripheral blood. Neutrophils are a type of white blood cell that play a crucial role in the immune response. The values in this column are expressed as floating-point numbers (float64), indicating the proportion of neutrophils relative to the total white blood cell count. Sample values range from 0.0 to 12.3, with a total of 262 unique values observed in the dataset. The uniqueness percentage of 27.81 suggests that while there are many different measurements, a significant number of records share the same percentage value.",
+        "field_sample_values": [
+          2.0,
+          12.3,
+          4.3,
+          0.0,
+          8.0
+        ],
+        "field_unique_values": "262 unique values",
+        "field_uniqueness_percent": 27.81
+      },
+      "percentage_nucleated_rbcs_in_pb": {
+        "field_data_type": "float64",
+        "field_description": "The column \"percentage_nucleated_rbcs_in_pb\" in the \"labreports\" table represents the percentage of nucleated red blood cells (RBCs) found in a sample of peripheral blood. Nucleated RBCs are immature red blood cells that are typically present in the bone marrow and are not usually found in significant numbers in the bloodstream of healthy adults. This measurement is expressed as a float value, indicating the proportion of these cells relative to the total number of red blood cells in the blood sample. The presence of nucleated RBCs in peripheral blood can be an important indicator of various medical conditions, including anemia or bone marrow disorders. The column contains 52 unique values, with a uniqueness percentage of 5.52%, suggesting that many records may share similar percentage values.",
+        "field_sample_values": [
+          3.2,
+          5.1,
+          0.6,
+          0.0,
+          2.0
+        ],
+        "field_unique_values": "52 unique values",
+        "field_uniqueness_percent": 5.52
+      },
+      "alt_levels_in_pb": {
+        "field_data_type": "float64",
+        "field_description": "The column \"alt_levels_in_pb\" in the \"labreports\" table likely represents the measured levels of alanine aminotransferase (ALT) in the blood, expressed in units of a specific measurement (possibly U/L). ALT is an enzyme found primarily in the liver, and its levels can indicate liver health or damage. The data type is float64, suggesting that the values can include decimal points, which is typical for enzyme level measurements. The sample values range from 8.0 to 80.0, with a total of 109 unique values recorded, indicating a diverse set of ALT levels among the lab reports. The uniqueness percent of 11.57 suggests that many records may share similar ALT levels, which is common in clinical data.",
+        "field_sample_values": [
+          8.0,
+          13.0,
+          80.0,
+          43.0,
+          30.0
+        ],
+        "field_unique_values": "109 unique values",
+        "field_uniqueness_percent": 11.57
+      },
+      "ast_levels_in_pb": {
+        "field_data_type": "float64",
+        "field_description": "The column \"ast_levels_in_pb\" in the \"labreports\" table likely represents the measured levels of aspartate aminotransferase (AST) in a patient's blood sample, expressed in units of a specific measurement (often U/L). AST is an enzyme found in various tissues, including the liver, heart, and muscles, and its levels can indicate liver function or damage. The data type is float64, suggesting that the values can include decimal points, which is typical for enzyme level measurements. The sample values range from 11.0 to 180.0, indicating a variety of AST levels among the recorded lab reports. With 99 unique values and a uniqueness percentage of 10.51, this column captures a diverse set of AST level readings across different patients or tests.",
+        "field_sample_values": [
+          15.0,
+          20.0,
+          22.0,
+          180.0,
+          11.0
+        ],
+        "field_unique_values": "99 unique values",
+        "field_uniqueness_percent": 10.51
+      },
+      "albumin_levels_in_pb": {
+        "field_data_type": "float64",
+        "field_description": "The column \"albumin_levels_in_pb\" in the \"labreports\" table likely represents the measured levels of albumin in the patient's blood plasma. Albumin is a protein produced by the liver, and its levels can be indicative of various health conditions, including liver disease, kidney disease, and nutritional status. The data type is float64, suggesting that the values are recorded as decimal numbers, which is typical for laboratory measurements. The sample values provided indicate a range of albumin levels, with unique values showing a variety of measurements, reflecting the different levels that can be observed in patients. The uniqueness percent of 3.61 indicates that there is a relatively low diversity of values in this dataset, suggesting that many patients may have similar albumin levels.",
+        "field_sample_values": [
+          2.3,
+          3.4,
+          3.6,
+          1.9,
+          2.8
+        ],
+        "field_unique_values": [
+          2.3,
+          3.4,
+          3.6,
+          1.9,
+          2.8,
+          4.1,
+          4.3,
+          4.0,
+          3.0,
+          3.8,
+          3.2,
+          3.9,
+          2.9,
+          3.7,
+          2.6,
+          3.1,
+          2.2,
+          3.3,
+          1.7,
+          3.5,
+          2.7,
+          2.5,
+          2.4,
+          4.2,
+          2.1,
+          1.8,
+          4.6,
+          2.0,
+          4.4,
+          4.5,
+          4.8,
+          4.7,
+          4.9,
+          1.6
+        ],
+        "field_uniqueness_percent": 3.61
+      },
+      "creatinine_levels_in_pb": {
+        "field_data_type": "float64",
+        "field_description": "The column \"creatinine_levels_in_pb\" in the \"labreports\" table likely represents the measured levels of creatinine in the blood of patients. Creatinine is a waste product produced by muscles from the breakdown of a compound called creatine, and its levels are commonly used as an indicator of kidney function. The data type is float64, indicating that the values are numerical and can include decimal points. Sample values range from approximately 0.66 to 1.0, suggesting that the measurements are within a typical range for healthy individuals. With 139 unique values and a uniqueness percentage of 14.76, this column captures a diverse set of creatinine levels across different lab reports.",
+        "field_sample_values": [
+          0.69,
+          0.8,
+          0.66,
+          1.0,
+          0.92
+        ],
+        "field_unique_values": "139 unique values",
+        "field_uniqueness_percent": 14.76
+      },
+      "fab_blast_morphology": {
+        "field_data_type": "object",
+        "field_description": "The column \"fab_blast_morphology\" in the \"labreports\" table likely represents the morphological classification of blast cells according to the French-American-British (FAB) classification system. This system is used in hematology to categorize different types of blood cell abnormalities, particularly in the context of leukemia. The sample values, such as 'M1', 'M2', and 'M4', correspond to specific morphological subtypes of myeloid leukemia, while 'NOS' indicates \"not otherwise specified.\" The presence of various unique values suggests a range of classifications, including both standard and atypical designations. The uniqueness percentage of 1.59 indicates that there is a relatively low number of distinct classifications compared to the total number of entries in this column.",
+        "field_sample_values": [
+          "M1",
+          "M4",
+          "M2",
+          "NOS",
+          "M0"
+        ],
+        "field_unique_values": [
+          "M1",
+          "M4",
+          "M2",
+          "NOS",
+          "M0",
+          "M5",
+          "M3",
+          "M6",
+          "M7",
+          "M4eo",
+          "M5a",
+          "M6b",
+          "M0/M1",
+          "M6a",
+          "M5b"
+        ],
+        "field_uniqueness_percent": 1.59
+      },
+      "hematocrit_levels": {
+        "field_data_type": "float64",
+        "field_description": "The column \"hematocrit_levels\" in the \"labreports\" table likely represents the percentage of red blood cells in a person's blood. Hematocrit is a common laboratory measurement used to assess an individual's blood composition and can provide insights into their overall health, including conditions such as anemia or dehydration. The data type for this column is float64, indicating that the values are stored as decimal numbers, which allows for precise measurement. The sample values range from 17.7 to 31.6, and there are a total of 212 unique hematocrit levels recorded, suggesting a diverse dataset with a uniqueness percentage of 22.51%.",
+        "field_sample_values": [
+          17.7,
+          31.6,
+          21.6,
+          22.2,
+          25.5
+        ],
+        "field_unique_values": "212 unique values",
+        "field_uniqueness_percent": 22.51
+      },
+      "hemoglobin_levels": {
+        "field_data_type": "float64",
+        "field_description": "The \"hemoglobin_levels\" column in the \"labreports\" table likely represents the measured levels of hemoglobin in the blood of patients. Hemoglobin is a protein in red blood cells responsible for transporting oxygen throughout the body. The values are stored as floating-point numbers (float64), indicating that they can include decimal points for precision. The sample values provided (6.3, 10.9, 7.5, 7.7, 9.1) suggest that the hemoglobin levels are measured in grams per deciliter (g/dL), which is a common unit for this type of measurement. With 90 unique values and a uniqueness percentage of 9.55, it indicates that there is a diverse range of hemoglobin levels recorded in the database, reflecting variations among different patients or conditions.",
+        "field_sample_values": [
+          6.3,
+          10.9,
+          7.5,
+          7.7,
+          9.1
+        ],
+        "field_unique_values": "90 unique values",
+        "field_uniqueness_percent": 9.55
+      },
+      "ldh_levels": {
+        "field_data_type": "float64",
+        "field_description": "The column \"ldh_levels\" in the \"labreports\" table likely represents the levels of lactate dehydrogenase (LDH) in a patient's blood sample. LDH is an enzyme that is found in many tissues throughout the body and is often measured to assess tissue damage or disease. The data type is float64, indicating that the values are numerical and can include decimal points. The sample values range from 123.0 to 1065.0, suggesting a variety of LDH levels among patients. With 311 unique values and a uniqueness percentage of 33.01, this column contains a diverse set of measurements, reflecting different clinical conditions or responses to treatment.",
+        "field_sample_values": [
+          426.0,
+          527.0,
+          512.0,
+          1065.0,
+          123.0
+        ],
+        "field_unique_values": "311 unique values",
+        "field_uniqueness_percent": 33.01
+      },
+      "mean_corpuscular_volume": {
+        "field_data_type": "float64",
+        "field_description": "The column \"mean_corpuscular_volume\" in the \"labreports\" table likely represents the average volume of red blood cells in a given blood sample, measured in femtoliters (fL). This value is an important indicator in hematology, as it helps assess the size of red blood cells and can be used to diagnose various medical conditions, such as anemia or other blood disorders. The data type is float64, indicating that the values are stored as floating-point numbers, allowing for precise measurements. The sample values range from 81.0 to 101.6, with a total of 231 unique values observed in the dataset, suggesting a diverse range of measurements across different lab reports. The uniqueness percent of 24.52 indicates that a significant portion of the values are repeated, which is common in clinical data where many patients may have similar results.",
+        "field_sample_values": [
+          101.6,
+          93.5,
+          91.5,
+          81.0,
+          85.0
+        ],
+        "field_unique_values": "231 unique values",
+        "field_uniqueness_percent": 24.52
+      },
+      "platelet_count": {
+        "field_data_type": "float64",
+        "field_description": "The \"platelet_count\" column in the \"labreports\" table represents the number of platelets measured in a patient's blood, expressed in units per liter. This field is of type float64, indicating that it can store decimal values, which is appropriate for capturing precise measurements. The sample values range from 13.0 to 33.0, and there are a total of 195 unique values recorded, suggesting a diverse set of platelet counts across different lab reports. With a uniqueness percentage of 20.7, this indicates that many patients may have similar platelet counts, which is common in medical data.",
+        "field_sample_values": [
+          13.0,
+          33.0,
+          28.0,
+          17.0,
+          14.0
+        ],
+        "field_unique_values": "195 unique values",
+        "field_uniqueness_percent": 20.7
+      },
+      "surface_antigens_immunohistochemical_stains": {
+        "field_data_type": "object",
+        "field_description": "The column \"surface_antigens_immunohistochemical_stains\" in the \"labreports\" table likely represents the results of immunohistochemical staining tests that identify specific surface antigens on cells. These antigens are crucial for diagnosing and classifying various types of hematological malignancies and other conditions. The values in this column consist of a list of surface antigens, such as CD7, CD13, CD33, and others, along with descriptors indicating their expression levels (e.g., \"partial,\" \"dim,\" \"positive\"). The presence and intensity of these antigens provide important clinical information regarding the patient's condition, as determined by flow cytometry analysis. With 668 unique values and a uniqueness percentage of 70.91, this field captures a diverse range of antigen expression profiles observed in lab reports.",
+        "field_sample_values": [
+          "CD7, CD13, CD33, partial CD34, dim CD45, CD117, CD123, HLA-DR and MPO positive",
+          "partial CD7, variable CD13, CD33, partial CD34,CD38, CD58, CD117, CD123, and partial HLA-DR positive",
+          "partial CD7, CD13, CD33, CD38, dim CD45, dimCD58, CD117, CD123, and HLA-DR",
+          "CD13, CD33, dimCD45, CD56, partial CD117, MPO/positive",
+          "CD13, CD33, CD38, CD56, CD117, and MPO positive"
+        ],
+        "field_unique_values": "668 unique values",
+        "field_uniqueness_percent": 70.91
+      },
+      "total_protein": {
+        "field_data_type": "float64",
+        "field_description": "The \"total_protein\" column in the \"labreports\" table represents the total protein levels measured in the blood, expressed in grams per deciliter (g/dL). This field is of type float64, indicating that it can store decimal values, which is appropriate for capturing the varying concentrations of proteins in blood samples. The sample values range from 5.0 to 6.9 g/dL, while the unique values include a broader range from 0.0 to 8.8 g/dL. The uniqueness percentage of 4.78 suggests that there are many repeated values in this dataset, indicating that certain protein levels are more common among the tested samples.",
+        "field_sample_values": [
+          5.4,
+          6.7,
+          6.9,
+          5.0,
+          5.8
+        ],
+        "field_unique_values": [
+          5.4,
+          6.7,
+          6.9,
+          5.0,
+          5.8,
+          7.6,
+          6.4,
+          6.3,
+          4.7,
+          4.6,
+          5.6,
+          6.1,
+          5.9,
+          6.6,
+          7.3,
+          5.5,
+          7.1,
+          6.8,
+          6.5,
+          8.6,
+          4.4,
+          5.3,
+          4.9,
+          7.0,
+          4.5,
+          6.2,
+          7.5,
+          3.6,
+          7.4,
+          8.1,
+          7.9,
+          6.0,
+          7.2,
+          5.2,
+          8.2,
+          7.8,
+          5.1,
+          5.7,
+          8.8,
+          8.0,
+          4.8,
+          7.7,
+          4.3,
+          8.7,
+          0.0
+        ],
+        "field_uniqueness_percent": 4.78
+      },
+      "wbc_count": {
+        "field_data_type": "float64",
+        "field_description": "The column \"wbc_count\" in the \"labreports\" table represents the white blood cell count, measured in international units (x10^9 cells/L). This value indicates the concentration of white blood cells in a given volume of blood, which is an important indicator of immune system health. The data type for this column is inferred to be float64, allowing for a range of decimal values, as seen in the sample values provided (e.g., 58.8, 5.3, 2.54). There are 623 unique values recorded, with a uniqueness percentage of 66.14%, suggesting a diverse set of measurements across different lab reports.",
+        "field_sample_values": [
+          58.8,
+          5.3,
+          2.54,
+          17.79,
+          0.6
+        ],
+        "field_unique_values": "623 unique values",
+        "field_uniqueness_percent": 66.14
+      }
+    }
+  },
+  "cytogenetics": {
+    "table_description": "The \"cytogenetics\" table stores cytogenetic data related to various samples, including karyotype information, sample identifiers, and descriptions of additional cytogenetic findings. This data is used for analyzing chromosomal abnormalities and genetic variations in biological samples.",
+    "fields": {
+      "karyotype_id": {
+        "field_data_type": "int64",
+        "field_description": "The `karyotype_id` field in the `cytogenetics` table is an integer data type that serves as a unique identifier for different karyotypes. With 942 unique values and a uniqueness percentage of 100.0, each `karyotype_id` corresponds to a distinct karyotype, which is a complete set of chromosomes in an organism. This field is likely used to categorize and reference specific chromosomal arrangements or abnormalities in cytogenetic studies.",
+        "field_sample_values": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "field_unique_values": "942 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "sample_id": {
+        "field_data_type": "object",
+        "field_description": "The \"sample_id\" column in the \"cytogenetics\" table contains unique identifiers for DNA or RNA sequencing specimens. Each identifier, such as 'BA2102D' or 'BA2005D', is a distinct dbGaP (database of Genotypes and Phenotypes) reference, ensuring that each sample can be uniquely identified within the dataset. With a total of 942 unique values and a uniqueness percentage of 100.0, this field is essential for tracking and managing individual specimens in genetic research. The data type is declared as text, indicating that these identifiers are alphanumeric strings.",
+        "field_sample_values": [
+          "BA2102D",
+          "BA2005D",
+          "BA3074D",
+          "BA2555D",
+          "BA3073R"
+        ],
+        "field_unique_values": "942 unique values",
+        "field_uniqueness_percent": 100.0
+      },
+      "karyotype": {
+        "field_data_type": "object",
+        "field_description": "The \"karyotype\" column in the \"cytogenetics\" table contains textual representations of chromosomal compositions observed in patients, as extracted from cytogenetics reports in the electronic medical record (EMR). Each entry typically includes the total number of chromosomes, the sex chromosomes, and any chromosomal abnormalities or alterations, such as deletions, additions, or translocations, along with their respective notations. For example, a value like \"46,XX[20]\" indicates a normal female karyotype with a count of 20 instances, while more complex entries may describe specific chromosomal changes. With 481 unique values and a uniqueness percentage of 51.06, this field captures a diverse range of karyotypic variations.",
+        "field_sample_values": [
+          "46,XX[20]",
+          "46,XX,del(6)(q13q23)[18]/46,XY[2]",
+          "46,XX,del(6)(q13q23)[15]/46,XY[5]",
+          "46,XY,add(17)(p13)[19]/46,XY[1]",
+          "48,X,-Y,+4,t(6;9)(p22;q34),+8,+10,del(15)(q11.2q15)[20]"
+        ],
+        "field_unique_values": "481 unique values",
+        "field_uniqueness_percent": 51.06
+      },
+      "other_cytogenetics": {
+        "field_data_type": "object",
+        "field_description": "The \"other_cytogenetics\" column in the \"cytogenetics\" table contains textual descriptions of FISH (Fluorescence In Situ Hybridization) results extracted from cytogenetics reports in the Electronic Medical Record (EMR). This field captures a variety of findings related to chromosomal abnormalities, including normal results, specific deletions, and fusion signals, often accompanied by percentages indicating the proportion of cells exhibiting these characteristics. With 398 unique values and a uniqueness percentage of 42.25, this column reflects a diverse range of cytogenetic observations, providing detailed insights into the genetic status of patients.",
+        "field_sample_values": [
+          "Normal",
+          "Missing 6q21 signal while having two copies each of the 6 centromere signal and the MYB (6q23) signal (40%)",
+          "6q deletion (79%)",
+          "normal",
+          "DEK/NUP probe set; 70/100 (70%) interphasecells scored had a 1 red/ 1 green/ 2 yellow fusion signal pattern,consistent with DEK/NUP fusion and the 6;9 translocation observed in themetaphase karyotype."
+        ],
+        "field_unique_values": "398 unique values",
+        "field_uniqueness_percent": 42.25
+      }
+    }
+  }
+}
