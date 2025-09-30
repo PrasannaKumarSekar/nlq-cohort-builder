@@ -29,10 +29,10 @@ from langgraph.types import Command
 from langgraph.checkpoint.memory import InMemorySaver
 
 # OpenAI API Key
-#os.environ['OPENAI_API_KEY'] = "your_api_key"
-#client = OpenAI()
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+os.environ['OPENAI_API_KEY'] = "your_api_key"
+client = OpenAI()
+#load_dotenv()
+#client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # -------------------------
 # Helper function to call LLM
