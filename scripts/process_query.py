@@ -8,8 +8,10 @@ Description: Simple workflow for cohort criteria generation from a user query + 
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+import uuid
 from datetime import datetime
 import json
+import ast
 from typing import List, Dict, Any, Literal, Tuple, Optional, Union, Type
 from pydantic import BaseModel, Field
 from rich import print
@@ -18,6 +20,10 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import pickle
 import pandas as pd
+from sqlalchemy import Table, Column, Integer, String, MetaData, select, or_, and_, not_, case, func
+from sqlalchemy.sql import text
+import collections
+from collections import deque
 
 # OpenAI API Key
 os.environ['OPENAI_API_KEY'] = "your_api_key"
@@ -329,7 +335,8 @@ def map_entity_to_table_field(entity: str, context_text: str,
         - 'sequential': map entity to likely table, then to likely column in the chosen table using an LLM;
           then retrieve similar fields with a similarity search on text summary embeddings and finally 
           rerank top_k matches 
-        - 'embed_rerank': ...
+        - 'embed_rerank': embed entity + class, do similarity search followed by reranking of top_k matches 
+          against field text embeddings
     """
 
     entity_class = call_llm(
@@ -340,8 +347,24 @@ def map_entity_to_table_field(entity: str, context_text: str,
         response_model=EntityClassResponse
     ).result
         
-    # TO-DO: add an `embed_rerank` method
-    if method == 'sequential':
+    if method == 'embed_rerank':
+        # Append inferred class to entity, embed the combination, then map to most relevant field.
+        entity_emb = get_embedding(f'{entity}_{entity_class}')  # embed the entity + class string
+        # Step 1: kNN matches
+        top_matches = find_matches(entity_emb, schema_embeddings, top_k=5)
+        candidates = [(name, schema_embeddings[name]['text']) for name, _ in top_matches]
+        # Step 2: LLM-reranking of top_k matches, make use of the criterion text as added context
+        ranked_matches = rerank_with_llm(entity_emb, candidates, context_text)
+        if ranked_matches:
+            try:
+                mapped_table_field = ranked_matches["1"]
+                return {"entity_class": entity_class, "table.field": mapped_table_field, "ranked_matches": list(ranked_matches.values())}
+            except Exception as e:
+                print(f'Error with LLM-reranking step for entity {entity}: {e}')
+                return {"entity_class": entity_class, "table.field": None, "ranked_matches": None}    
+        return {"entity_class": entity_class, "table.field": None, "ranked_matches": None}
+    
+    elif method == 'sequential':
         # Step 1: Map entity to the most probable Table
         table_descriptions = {name: details['table_description'] for name, details in schema.items()}
         mapped_table = call_llm(
@@ -393,6 +416,7 @@ def map_entity_to_table_field(entity: str, context_text: str,
                 return {"entity_class": entity_class, "table.field": f'{mapped_table}.{mapped_field}', "ranked_matches": None}
                 
         return {"entity_class": entity_class, "table.field": f'{mapped_table}.{mapped_field}', "ranked_matches": list(ranked_matches.values())}
+
 
 def map_criteria_to_schema(criteria_list: List[Dict[str, Any]],
                            db_schema: Dict,
@@ -706,6 +730,377 @@ def rewrite_user_criteria(criteria_list: List[Dict[str, Any]], max_workers: int 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         return list(executor.map(process_criterion, criteria_list))
 
+
+# -------------------------
+# Validation of rewritten criteria
+# -------------------------
+class ValidatedExpr(BaseModel):
+    valid: bool
+    reason: str
+
+def _validate_single_value(value, col_type, col_info):
+    """Helper function to validate one value against the column schema."""
+    val_type = "str"
+    # Determine the type of the value (not a string representation)
+    if isinstance(value, int):
+        val_type = "int"
+    elif isinstance(value, float):
+        val_type = "float"
+
+    NUMERIC_TYPES = {'int64', 'float64', 'int', 'float'}
+    is_val_numeric = val_type in NUMERIC_TYPES
+    is_col_numeric = col_type in NUMERIC_TYPES
+
+    # if both val and col are numeric
+    if is_val_numeric and is_col_numeric:
+        return {"valid": True, "reason": "Numeric value is compatible with numeric column."}
+    
+    # type mismatch
+    if is_val_numeric != is_col_numeric:
+        return {"valid": False, "reason": f"Type Mismatch: Value {value} ({val_type}) is incompatible with column type '{col_type}'."}
+
+    # Both are non-numeric, escalate to LLM for format check
+    # Note: This is WIP and may give some false positives
+    prompt = f"""
+        You are a format validator.
+
+        TASK:
+        - Check if the filtering value's string format is compatible with the column's string format.
+        - Do not expect a specific match with the provided sample column values; only check for pattern compatibility.
+        - Always respond in JSON that strictly follows the schema below.
+
+        CONTEXT:
+        Filtering Value: {value}
+        Column Summary: {col_info}
+
+        SCHEMA:
+        {{
+            "valid": bool,      // boolean: whether the filtering value is compatible
+            "reason": "string"  // short explanation of the decision
+        }}
+
+        Return only a JSON object that matches this schema.
+    """
+    response = call_llm(
+        user_prompt=prompt,
+        model="gpt-4o-mini",
+        system_prompt="You are a strict data format validation agent.",
+        response_model=ValidatedExpr
+    )
+    # Return dict instead of Pydantic object
+    return response.model_dump()
+
+def _validate_expr(expr, db_schema):
+    """
+    Validates an expression, handling standard operators and IN clauses with list value.
+    Expression format: '<table.field> <operator> <value>'.
+    """
+    # 1. Parse the expression
+    try:
+        field_part, op, val_str = expr.strip().split(maxsplit=2)
+        table, col = field_part.split(".")
+    except ValueError:
+        return {"valid": False, "reason": f"Invalid expression format. Expected '<table.field> <op> <value>'."}
+
+    # 2. Get column info from DB schema
+    try:
+        col_info = db_schema[table]['fields'][col]
+        col_type = col_info["field_data_type"].lower()
+    except KeyError:
+        return {"valid": False, "reason": f"Column '{table}.{col}' not found in database schema."}
+
+    op = op.upper() # Standardize operator to uppercase
+
+    # 3. Handle IN clause
+    if op == 'IN':
+        try:
+            # Safely evaluate the string as a Python literal (e.g., "['a', 'b']")
+            value_list = ast.literal_eval(val_str)
+            if not isinstance(value_list, list):
+                raise TypeError
+        except (ValueError, SyntaxError, TypeError):
+            return {"valid": False, "reason": "Operator 'IN' must be followed by a valid list (e.g., ['a', 'b'])."}
+        
+        if not value_list: # Empty list is valid
+            return {"valid": True, "reason": "Expression with empty IN list is valid."}
+
+        # Validate each item in the list
+        in_results = []
+        for item in value_list:
+            result = _validate_single_value(item, col_type, col_info)
+            if not result["valid"]:
+                # Prepend context to the reason from the helper function
+                result["reason"] = f"Invalid item in IN list. {result['reason']}"
+                #return result
+            in_results.append(result)
+        if any(res["valid"] is False for res in in_results):
+            return in_results
+        else:
+            return {"valid": True, "reason": "All items in the IN list are valid."}
+
+    # 4. Handle other operators
+    else:
+        val = val_str.strip("'\"")
+        parsed_val = val
+        try:
+            parsed_val = int(val)
+        except ValueError:
+            try:
+                parsed_val = float(val)
+            except ValueError:
+                pass # Stays a str
+        return _validate_single_value(parsed_val, col_type, col_info)
+
+def validate_criteria(criteria_list: List[Dict[str, Any]], db_schema, max_workers: int = 8) -> List[Dict[str, Any]]:
+    """
+    Validate value type (and format for strs) compatibility with the db column for each expression in the list of criteria.
+    Also checks if each table.col in criteria is present in the DB.
+    """
+    def process_criterion(criterion: Dict[str, Any]) -> Dict[str, Any]:
+        crit = criterion["revised_criterion"]
+        exprs = []
+        # get single criteria by splitting on `OR` or `AND` clause
+        if "OR" in crit:
+            exprs = crit.strip().split("OR")
+        elif "AND" in crit:
+            exprs = crit.strip().split("AND")
+        else:
+            exprs = [crit.strip()]
+
+        validation_results = []
+        for expr in exprs:
+            flag = _validate_expr(expr.strip(), db_schema)
+            validation_results.append({
+                "expression": expr.strip(),
+                "validation": flag
+            })
+
+        new_criterion = criterion.copy()
+        new_criterion["validation_results"] = validation_results
+        return new_criterion
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        return list(executor.map(process_criterion, criteria_list))
+
+
+# -------------------------
+# Translate criteria to SQL
+# -------------------------
+# --- Helper functions to create the joins needed to combine data across tables ---
+
+def find_join_path(start_table, end_table, schema_keys):
+    """
+    Finds the shortest sequence of tables to join from start to end
+    using a schema definition with primary and foreign keys.
+    """
+    if start_table == end_table:
+        return [start_table]
+
+    queue = deque([[start_table]])
+    visited = {start_table}
+
+    while queue:
+        path = queue.popleft()
+        current_table = path[-1]
+
+        # --- Find all neighbors using the PK/FK schema ---
+        neighbors = set()
+
+        # 1. Find tables that `current_table` points to (via its own FKs)
+        for referenced_table in schema_keys[current_table]['fks'].values():
+            neighbors.add(referenced_table)
+
+        # 2. Find tables that point to `current_table` (reverse lookup)
+        for other_table, details in schema_keys.items():
+            if current_table in details['fks'].values():
+                neighbors.add(other_table)
+
+        # Process the found neighbors
+        for neighbor in neighbors:
+            if neighbor not in visited:
+                new_path = list(path)
+                new_path.append(neighbor)
+                if neighbor == end_table:
+                    return new_path  # Path found
+
+                visited.add(neighbor)
+                queue.append(new_path)
+
+    return None # No path exists
+
+def get_join_keys(table1_name, table2_name, schema_keys):
+    """
+    Finds the foreign key and primary key to join two adjacent tables.
+    """
+    t1_details = schema_keys[table1_name]
+    t2_details = schema_keys[table2_name]
+
+    # Case 1: Table 1 has an FK pointing to Table 2's PK
+    for fk_col, ref_table in t1_details['fks'].items():
+        if ref_table == table2_name:
+            # Join on table1.fk_col = table2.pk
+            return (fk_col, t2_details['pk'])
+
+    # Case 2: Table 2 has an FK pointing to Table 1's PK
+    for fk_col, ref_table in t2_details['fks'].items():
+        if ref_table == table1_name:
+            # Join on table1.pk = table2.fk_col
+            return (t1_details['pk'], fk_col)
+            
+    return None # Should not happen if a path was found
+
+# --- SQL query builder ---
+def build_query_from_criteria(criteria, tables, schema_keys, root="main"):
+    """
+    Builds an SQL query with ORM functions, handling complex JOINs and AND/OR in condition strings 
+    and multi-entry conditions via GROUP BY/HAVING.
+    """
+    
+    # 1. Condition parser
+    def _build_expression(condition_str):
+        """Recursively builds a SQLAlchemy expression from a string."""
+        # Base case of recursion: a simple 'table.col op value' clause
+        def _parse_simple_clause(clause_str):
+            parts = clause_str.strip().split(maxsplit=2)
+            table, col = parts[0].split(".")
+            op, val_str = parts[1], parts[2]  
+            
+            col_expr = tables[table].c[col]
+
+            # Handle IN clause
+            if op.upper() == 'IN':
+                try:
+                    # Safely evaluate the string representation of the list
+                    list_of_values = ast.literal_eval(val_str)
+                    if not isinstance(list_of_values, list):
+                        raise ValueError("Value for IN operator must be a list.")
+                    return col_expr.in_(list_of_values)
+                except (ValueError, SyntaxError) as e:
+                    raise ValueError(f"Could not parse list for IN condition: {val_str}") from e
+
+            # Handle other operators
+            else:
+                # Strip quotes if string, else cast to int/float
+                if val_str.startswith("'") and val_str.endswith("'"): 
+                    val = val_str.strip("'")
+                else:
+                    try: val = int(val_str)
+                    except ValueError: val = float(val_str)
+
+                # Operator mapping
+                ops = { "=": lambda c, v: c == v, ">": lambda c, v: c > v, "<": lambda c, v: c < v,
+                        ">=": lambda c, v: c >= v, "<=": lambda c, v: c <= v, "!=": lambda c, v: c != v }
+                if op not in ops:
+                    raise ValueError(f"Unsupported operator: {op}")
+            return ops[op](col_expr, val)
+
+        # Recursive step: split by OR, then by AND
+        or_parts = [p.strip() for p in condition_str.split(' OR ')]
+        or_clauses = []
+        for part in or_parts:
+            and_parts = [p.strip() for p in part.split(' AND ')]
+            and_clauses = [_parse_simple_clause(p) for p in and_parts]
+            or_clauses.append(and_(*and_clauses))
+            #print(part, and_parts)
+        
+        return or_(*or_clauses)
+
+    # 2. Parse and categorize criteria (WHERE v/s GROUP_BY/HAVING)
+    include_counts = collections.Counter()
+    for c in criteria:
+        if c['type'] == 'include':
+            # This simple check is sufficient to find multi-entry cases
+            simple_cond = c['revised_criterion'].split(' AND ')[0].split(' OR ')[0]
+            table, col = simple_cond.strip().split(maxsplit=2)[0].split('.')
+            include_counts[(table, col)] += 1
+    
+    where_filters = []
+    having_filters = []
+    for c in criteria:
+        simple_cond = c['revised_criterion'].split(' AND ')[0].split(' OR ')[0]
+        table, col = simple_cond.strip().split(maxsplit=2)[0].split('.')
+        is_multi_entry = include_counts.get((table, col), 0) > 1
+
+        # A condition is for HAVING only if it's simple and part of a multi-entry set
+        is_simple_condition = ' AND ' not in c['revised_criterion'] and ' OR ' not in c['revised_criterion']
+        if c['type'] == 'include' and is_multi_entry and is_simple_condition:
+            having_filters.append(c)
+        else:
+            where_filters.append(c)
+    #print(f"Where:\n{where_filters}")
+    #print(f"Having:\n{having_filters}")
+
+    # 3. Initialize query, build joins across reqd tables, handle joins across tables not sharing PK/FK with bridging
+    root_table = tables[root]
+    root_pk = schema_keys[root]['pk']
+    grouping_key = root_table.c[root_pk]   # assume the pk of root table is the reference key for grouping
+    # initialize query obj
+    query = select(grouping_key) # TO-DO: provide option to supply more keys for data fetching
+    
+    # Get the tables from the criteria
+    required_tables = set()
+    for c in criteria:
+        # extract table names from table.field mentions in each condition
+        words = c["revised_criterion"].split()
+        for word in words:
+            if '.' in word:
+                table_name = word.split('.')[0]
+                if table_name in tables:
+                    required_tables.add(table_name)
+    #print(f'Tables in criteria: {required_tables}')
+
+    # Find the join path for each required table and add necessary joins
+    tables_in_query = {root}
+    for target_table in required_tables:
+        if target_table in tables_in_query:
+            continue
+
+        # Call the new pathfinder
+        path = find_join_path(root, target_table, schema_keys)
+        if path is None:
+            raise Exception(f"No join path found from '{root}' to '{target_table}'")
+
+        # Iterate through the path to build joins
+        for i in range(len(path) - 1):
+            from_table_name = path[i]
+            to_table_name = path[i+1]
+            if to_table_name not in tables_in_query:
+                # Get the join columns using the new helper
+                from_key, to_key = get_join_keys(from_table_name, to_table_name, schema_keys)
+
+                from_table = tables[from_table_name]
+                to_table = tables[to_table_name]
+
+                query = query.join(to_table, from_table.c[from_key] == to_table.c[to_key])
+                tables_in_query.add(to_table_name)
+    #print(f'Tables in the framed query: {tables_in_query}') # this can include bridging tables
+
+    # 4. Apply row-level filters (WHERE caluse)
+    for f in where_filters:
+        expression = _build_expression(f['revised_criterion'])
+        query = query.filter(expression if f['type'] == 'include' else not_(expression))
+
+    # 5. APPLY group-level filters (HAVING clause)
+    if having_filters:
+        query = query.group_by(grouping_key)
+        having_clauses = []
+        for f in having_filters:
+            # Having filters are guaranteed to be simple by our categorization logic
+            parts = f['revised_criterion'].strip().split(maxsplit=2)
+            table, col = parts[0].split('.'); val_str = parts[2]
+            if val_str.startswith("'"): val = val_str.strip("'")
+            else: val = int(val_str)
+            col_expr = tables[table].c[col]
+            condition = func.count(case((col_expr == val, 1))) > 0
+            having_clauses.append(condition)
+        query = query.having(and_(*having_clauses))
+
+    query_str = str(query.compile(compile_kwargs={"literal_binds": True}))
+    return {
+        "criteria": criteria,
+        "sql_query": query_str
+    }
+
 # -------------------------
 # LLM decision agent
 # -------------------------
@@ -750,8 +1145,11 @@ def agent_decide(conversation_history: List[str], current_criteria: Dict) -> Age
         - 0: initial user query, no logical criteria generated
         - 1: eligibility criteria generated
         - 2: entities parsed from criteria
-        - 3: parsed entities mapped to DB schema and values
-        - 4: Criteria rewritten with the mapped entities
+        - 3: parsed entities mapped to DB schema
+        - 3: entities mapped to DB concepts/values
+        - 5: Criteria rewritten with the mapped entities
+        - 6: Criteria validated for DB compatibility
+        - 7: SQL query generated from criteria
         </STATES>
 
         Current State: {current_criteria}
@@ -778,7 +1176,7 @@ def agent_decide(conversation_history: List[str], current_criteria: Dict) -> Age
 # -------------------------
 # 'Tools'
 # -------------------------
-def process_query(state_dict: Dict, stage_counter: int, db_schema, db_embeddings, concept_df, concept_lookup):
+def process_query(state_dict: Dict, stage_counter: int, db_schema, db_embeddings, concept_df, concept_lookup, schema_keys, root, method):
     """
     Calls the right function on the current state to generate/structure criteria depending on stage.
     Each call to this function advances the sequence by a stage.
@@ -808,13 +1206,29 @@ def process_query(state_dict: Dict, stage_counter: int, db_schema, db_embeddings
         result = extract_criteria_entities(state_dict["current_criteria"])
     elif stage_counter == 2:
         print(f"> Agent to User: Mapping parsed entities to schema")
-        result = map_criteria_to_schema(state_dict["current_criteria"], db_schema, db_embeddings)
+        result = map_criteria_to_schema(state_dict["current_criteria"], db_schema, db_embeddings, method)
     elif stage_counter == 3:
         print(f"> Agent to User: Mapping entities to concepts")
         result = map_entity_to_concept(state_dict["current_criteria"], concept_df, concept_lookup)
     elif stage_counter == 4:
         print(f"> Agent to User: Rewriting criteria based on mapped entities")
         result = rewrite_user_criteria(state_dict["current_criteria"])
+    elif stage_counter == 5:
+        print(f"> Agent to User: Validating criteria for database compatibility")
+        result = validate_criteria(state_dict["current_criteria"], db_schema)
+    elif stage_counter == 6:
+        print(f"> Agent to User: Generating SQL query from criteria")
+        schema = {}
+        for table, table_info in db_schema.items():
+            fields = list(table_info.get("fields", {}).keys())
+            schema[table] = fields
+        # Tables in SQAlchemy compatible format
+        metadata = MetaData()
+        tables = {
+            t: Table(t, metadata, *(Column(c, String) for c in cols)) 
+            for t, cols in schema.items()
+        }
+        result = build_query_from_criteria(state_dict["current_criteria"], tables, schema_keys, root)
     return result
 
 
@@ -927,13 +1341,33 @@ class RewrittenCriterion(ConceptCriterion):
 class RewrittenCriteriaState(BaseModel):
     criteria: List[RewrittenCriterion]
 
+# Stage 6 → Validated criteria
+class ValidationInfo(BaseModel):
+    valid: bool
+    reason: str
+
+class ValidationResult(BaseModel):
+    expression: str
+    validation: ValidationInfo
+
+class ValidatedCriterion(RewrittenCriterion):
+    validation_results: List[ValidationResult]
+
+class ValidatedCriteriaState(BaseModel):
+    criteria: List[ValidatedCriterion]
+
+# Stage 7 → SQL query
+class SQLCriteriaState(ValidatedCriteriaState):
+    sql_query: str
 
 STAGE_MODELS: Dict[int, Type[BaseModel]] = {
     1: RawCriteriaState,       # only type/text
     2: EntityCriteriaState,    # + entities
     3: SchemaCriteriaState,    # + db_mappings
     4: ConceptCriteriaState,   # + concept mapping
-    5: RewrittenCriteriaState  # + revised_criterion
+    5: RewrittenCriteriaState,  # + revised_criterion
+    6: ValidatedCriteriaState,   # + validation_results
+    7: SQLCriteriaState         # + sql_query
 }
 
 
@@ -1042,6 +1476,8 @@ def edit_tool(user_input: str, state_dict: Dict, stage_counter: int):
     3: Criteria with parsed entities mapped to schema table/field
     4: Criteria with parsed entities mapped to schema concepts
     5: Criteria rewritten using the entity mappings
+    6: Criteria validated for DB compatibility
+    7: SQL query generated from criteria
 
     TO-DO: Make this more deterministic by reducing reliance on LLM edit.
     """
@@ -1088,9 +1524,17 @@ def edit_tool(user_input: str, state_dict: Dict, stage_counter: int):
                 }}
             ],
             "revised_criterion": "..."         # optional
+            "validation_results": [            # optional
+                {{
+                "expression": "...",
+                "validation": {{
+                    "valid": true | false,
+                    "reason": "..."
+                }}
             }},
             ...
-        ]
+        ],
+        "sql_query": "..."  # optional
         }}
 
         CURRENT STATE (for reference):
@@ -1102,27 +1546,31 @@ def edit_tool(user_input: str, state_dict: Dict, stage_counter: int):
         Return the entire updated object (with key 'criteria') in that schema.
         """
         # Pick stage-specific response model
-        response_model = STAGE_MODELS.get(stage_counter, RewrittenCriteriaState)
+        response_model = STAGE_MODELS.get(stage_counter, SQLCriteriaState)
 
         # 1) Try the structured path (preferred)
         try:
             response = call_llm(user_prompt=edit_prompt, response_model=response_model)
             if isinstance(response, response_model):
-                # Convert validated model into runtime list-of-dicts & convert db_mappings to dict keyed by entity
                 final_state: List[Dict[str, Any]] = []
                 for crit in response.criteria:
-                    crit_dict = crit.model_dump()  # mapping entries are list-of-dicts here
-                    # convert db_mappings list -> dict keyed by entity, with mapping containing "table.field"
+                    crit_dict = crit.model_dump()
                     crit_dict["db_mappings"] = db_mappings_list_to_dict(crit_dict.get("db_mappings"))
                     final_state.append(crit_dict)
-                return final_state
+
+                # preserve sql_query only if stage 7
+                if stage_counter == 7 and hasattr(response, "sql_query") and response.sql_query:
+                    state_dict["sql_query"] = response.sql_query
+
+                if stage_counter == 7:
+                    return {"criteria": final_state, "sql_query": state_dict.get("sql_query", "")}
+                else:
+                    return final_state
             else:
-                # unexpected type — fall back
                 print(f"[WARN] Structured parse returned unexpected type ({type(response)}); falling back to raw parse.")
         except Exception as e_struct:
-            # Could be parse failure, validation failure, or API error; fallback to raw parsing
             print(f"[WARN] Structured parse failed ({e_struct}); falling back to raw JSON parse.")
-        
+
         # 2) Fallback: raw text + coercion + validation
         raw = call_llm(user_prompt=edit_prompt, response_model=None)
         parsed = None
@@ -1135,45 +1583,57 @@ def edit_tool(user_input: str, state_dict: Dict, stage_counter: int):
         else:
             parsed = raw
 
-        # attempt to coerce into canonical {"criteria": [...] } with db_mappings as list entries
         try:
             coerced = coerce_raw_to_canonical(parsed)
         except Exception as e_coerce:
             print(f"[ERROR] Could not coerce raw LLM output into canonical shape: {e_coerce}")
             return None
 
-        # Validate coerced structure with CurrentCriteriaState
         try:
             validated = response_model.model_validate(coerced)
         except Exception as e_val:
             print(f"[ERROR] Validation of coerced LLM result failed: {e_val}")
             return None
 
-        # convert validated to runtime shape (list of criterion dicts with db_mappings as dict keyed by entity)
         final_state: List[Dict[str, Any]] = []
         for crit in validated.criteria:
             crit_dict = crit.model_dump()
             crit_dict["db_mappings"] = db_mappings_list_to_dict(crit_dict.get("db_mappings"))
             final_state.append(crit_dict)
 
-        return final_state
+        # preserve sql_query only if stage 7
+        if stage_counter == 7 and hasattr(validated, "sql_query") and validated.sql_query:
+            state_dict["sql_query"] = validated.sql_query
+
+        if stage_counter == 7:
+            return {"criteria": final_state, "sql_query": state_dict.get("sql_query", "")}
+        else:
+            return final_state
 
 
 # ------ (Main Application Loop) ------
 def main():
 
     # load DB schema
-    with open('./CPTAC_schema.json', 'r') as f:
+    with open('./BeatAML/BeatAML_schema.json', 'r') as f:
         DB_SCHEMA = json.load(f)
+    
+    # load schema keys for joins
+    with open('./BeatAML/BeatAML_schema_keys.json', 'r') as f:
+        SCHEMA_KEYS = json.load(f)
+    
     # load the vector embeddings for field desc text
-    with open('./db_table_field_embeddings.json', 'r') as f:
+    with open('./BeatAML/db_table_field_embeddings.json', 'r') as f:
         DB_EMBEDDINGS = json.load(f)
     
+    ROOT_TABLE = "patient"  # main table for cohort filtering
+    FIELD_MAPPING_METHOD = "sequential"  # method for schema mapping
+
     # Load concept table & embeddings
-    CONCEPT_DF = pd.read_csv("concept_table.csv")  
+    CONCEPT_DF = pd.read_csv("BeatAML/concept_table.csv")  
     # cols: concept_name, table_name, field_name, concept_with_context
 
-    with open("concept_embeddings.pkl", "rb") as f:
+    with open("BeatAML/concept_embeddings.pkl", "rb") as f:
         data = pickle.load(f)
 
     concepts = data["concepts"]              # list of concept_with_context
@@ -1190,6 +1650,7 @@ def main():
 
     # State Management
     state_dict = {
+        "session_id": str(uuid.uuid4()),
         "session_start_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         "original_query": None,
         "conversation_history": [],
@@ -1229,9 +1690,9 @@ def main():
 
         # call the right function based on the action taken
         if action == "advance":
-            if stage_counter == 5:
+            if stage_counter == 7:
                 break
-            result = process_query(state_dict, stage_counter, DB_SCHEMA, DB_EMBEDDINGS, CONCEPT_DF, CONCEPT_LOOKUP)
+            result = process_query(state_dict, stage_counter, DB_SCHEMA, DB_EMBEDDINGS, CONCEPT_DF, CONCEPT_LOOKUP, SCHEMA_KEYS, ROOT_TABLE, FIELD_MAPPING_METHOD)
             state_dict["current_criteria"] = result
             stage_counter += 1
 
@@ -1278,4 +1739,3 @@ def main():
 # run
 if __name__ == "__main__":
     main()
-    
