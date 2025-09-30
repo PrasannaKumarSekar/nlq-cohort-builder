@@ -1,0 +1,48 @@
+{
+  "patient": {
+    "pk": "patient_id",
+    "fks": {}
+  },
+  "sample": {
+    "pk": "sample_id",
+    "fks": {
+      "patient_id": "patient"
+    }
+  },
+  "cytogenetics": {
+    "pk": "karyotype_id",
+    "fks": {
+      "sample_id": "sample"
+    }
+  },
+  "fusion": {
+    "pk": "fusion_id",
+    "fks": {
+      "sample_id": "sample"
+    }
+  },
+  "clinical_outcome": {
+    "pk": "outcome_id",
+    "fks": {
+      "patient_id": "patient"
+    }
+  },
+  "mutation": {
+    "pk": "variant_id",
+    "fks": {
+      "sample_id": "sample"
+    }
+  },
+  "labreports": {
+    "pk": "labreport_id",
+    "fks": {
+      "sample_id": "sample"
+    }
+  },
+  "treatment": {
+    "pk": "treatment_id",
+    "fks": {
+      "patient_id": "patient"
+    }
+  }
+}
