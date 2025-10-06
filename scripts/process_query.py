@@ -334,7 +334,7 @@ def map_entity_to_table_field(entity: str, entity_class: str | None,
                               context_text: str, 
                               schema: Dict, schema_embeddings: Dict,
                               concept_df: pd.DataFrame, concept_lookup: Dict, 
-                              method: str = 'sequential', max_workers: int = 8) -> Dict[str, str]:
+                              method: str = 'aggregation', max_workers: int = 8) -> Dict[str, str]:
     """Helper function to map a single entity to the most likely table and field.
     
         Args:
@@ -345,7 +345,7 @@ def map_entity_to_table_field(entity: str, entity_class: str | None,
             schema_embeddings (Dict): Dict mapping table.field names to descriptions and text embeddings.
             concept_df (pandas.DataFrame): Concept table with each unique DB concept and its parent table/field. 
             concept_lookup (Dict): Dict mapping DB concepts (all unique object values) to numeric embeddings.
-            method (str): How the mapping from entity to table.field is to be done.
+            method (str): How the mapping from entity to table.field is to be done. Default: `aggregation`.
             max_workers (int): No. of workers.
 
         Returns:
