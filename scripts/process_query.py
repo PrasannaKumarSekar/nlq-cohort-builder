@@ -134,7 +134,7 @@ def extract_raw_criteria(query: str, current_criteria: Dict[str, str] = {}, feed
         {{"type": "include", "text": "are male"}},
         {{"type": "include", "text": "have diabetes"}},
         {{"type": "include", "text": "on warfarin"}},
-        {{"type": "exclude", "text": "not on warfarin"}}
+        {{"type": "exclude", "text": "not on warfarin"}}, # added exclusion over complement
     ]
     </Example>
 
@@ -361,7 +361,9 @@ def map_entity_to_table_field(entity: str, entity_class: str | None,
           with kNN, then obtain the corresponding parent tables/fields
         - 'aggregation': runs all the above 3 methods, aggregates their results, followed by LLM reranking
         
-        TO-DO: Entity -> value mapping on a table which will contain all `object` type values.
+        TO-DO: 
+            Entity -> value mapping on a table which will contain all `object` type values.
+            String-based/regex searches in addition to semantic search.
     """
 
     if entity_class is None:
@@ -453,7 +455,7 @@ def map_entity_to_table_field(entity: str, entity_class: str | None,
         top_idxs = np.argsort(sims)[::-1][:5]
         # get top matching unique values
         top_values = [list(concept_lookup.keys())[i] for i in top_idxs]
-        print(f"Top directly mapped values: {top_values}")
+        #print(f"Top directly mapped values: {top_values}")
         # retrieve the corresponding table.field columns
         filter_rows = concept_df[concept_df.concept_with_context.isin(top_values)].set_index('concept_with_context').loc[top_values]
         ranked_matches = list(set([f"{t}.{f}" for t,f in zip(filter_rows['table_name'], filter_rows['field_name'])]))
@@ -472,7 +474,7 @@ def map_entity_to_table_field(entity: str, entity_class: str | None,
                 result = future.result()
                 field_matches.extend(result.get('ranked_matches'))
         field_matches = list(set(field_matches))
-        print(f"All field matches: {field_matches}")
+        #print(f"All field matches: {field_matches}")
         candidates = [(f, schema_embeddings[f]['text']) for f in field_matches]
         context = f"The entity belongs to class: `{entity_class}`, and comes from the selection filter: `{context_text}`.\
             Make use of the candidate descriptions and sample values format to decide relevance."
