@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Description: Simple workflow for cohort criteria generation from a user query + feedback with the help of LLM 
+Description: Sequential workflow for cohort criteria generation from a user query + feedback with the help of LLM 
 """
 
 # import libraries
@@ -27,12 +27,14 @@ from collections import deque
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
 from langgraph.checkpoint.memory import InMemorySaver
+from polly.auth import Polly
+from polly.atlas import Atlas
 
 # OpenAI API Key
-os.environ['OPENAI_API_KEY'] = "your_api_key"
-client = OpenAI()
-#load_dotenv()
-#client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+#os.environ['OPENAI_API_KEY'] = "your_api_key"
+#client = OpenAI()
+load_dotenv()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # -------------------------
 # Helper function to call LLM
@@ -111,6 +113,7 @@ def extract_raw_criteria(query: str, current_criteria: Dict[str, str] = {}, feed
     Ignore parts of the query asking for analysis, plotting, or specific attributes. 
     Each distinct `AND` condition should be a separate item in the list.
     Do not split `OR` clauses.
+    Handle exclusive conditions by adding an exclusion criterion over the Complement Set.
 
     IMPORTANT: 
     * Pay attention to the [current_criteria] supplied and the [feedback], if any, as well as the original query.
@@ -119,8 +122,7 @@ def extract_raw_criteria(query: str, current_criteria: Dict[str, str] = {}, feed
     Return the result as a JSON list of objects. Each object is a single `AND` condition and has:
     - "type": "include" or "exclude"
     - "text": The string phrase for the condition.
-    Always Return only a JSON list and nothing else. Do not include markdown code blocks.
-
+    
     <Example>
     Query: "Find all women who have diabetes or hypertension but not smokers and are older than 50."
     Result:
@@ -129,6 +131,14 @@ def extract_raw_criteria(query: str, current_criteria: Dict[str, str] = {}, feed
         {{"type": "include", "text": "have diabetes or hypertension"}},
         {{"type": "include", "text": "are older than 50"}},
         {{"type": "exclude", "text": "are smokers"}}
+    ]
+    Query: "male diabetic pts on warfarin and taking no other drug"
+    Result:
+    [
+        {{"type": "include", "text": "are male"}},
+        {{"type": "include", "text": "have diabetes"}},
+        {{"type": "include", "text": "on warfarin"}},
+        {{"type": "exclude", "text": "not on warfarin"}}, # added exclusion over complement
     ]
     </Example>
 
@@ -153,12 +163,51 @@ def extract_raw_criteria(query: str, current_criteria: Dict[str, str] = {}, feed
 # Function 2: extract_criteria_entities
 # -------------------------
 
-class EntitiesList(BaseModel):
-    entities: List[str]
+class FilterItem(BaseModel):
+    attribute: str
+    entity: str
+
+class FilterItemList(BaseModel):
+    items: List[FilterItem]
+
+def _process_criterion(criterion: Dict[str, str]) -> Dict[str, Any]:
+    prompt = f"""
+        You are given a selection criterion that needs to be converted to a structured DB query.
+
+        Task:
+        - Extract all *attributes/properties* mentioned. An attribute would reference a database column. 
+        - Extract all *specific entities* present. An entity would define the <operator + filtering_value>.
+        - Entity can be noun, noun phrase, name, group, identifier, code, value range, number or measurement (with units).
+        - Return each *entity* linked to its corresponding *attribute*.
+        - If no attribute is explicitly referenced for an entity, infer it based on the entity and context.
+        - Return a List with each item an attribute-entity pair.
+
+        <Examples>
+            Criterion: "have diabetes or hypertension"
+            Result: [{{"attr":"medical condition", "entity":"diabetes"}}, {{"attr":"medical condition", "entity":"hypertension"}}]
+
+            Criterion: "born between 1990 and 1997"
+            Result: [{{"attr":"birth year", "entity":"1990-1997"}}]
+
+            Criterion: "mutation in IDH2 gene"
+            Result: [{{"attr":"genetic mutation", "entity":"IDH2"}}]
+        </Examples>
+
+        Criterion: "{criterion['text']}"
+        """
+
+    response = call_llm(user_prompt=prompt, response_model=FilterItemList)
+    new_criterion = criterion.copy()
+    if isinstance(response, FilterItemList):
+        new_criterion['filter_items'] = [(r.attribute, r.entity) for r in response.items]
+    else:
+        print(f"Error: Could not parse entities from text: '{criterion['text']}'")
+        new_criterion['filter_items'] = []
+    return new_criterion
 
 def extract_criteria_entities(criteria_list: List[Dict[str, str]], max_workers: int = 8) -> List[Dict[str, Any]]:
     """
-    Extracts key entities from the 'text' of each criterion.
+    Extracts attributes and entities from the 'text' of each criterion.
 
     Args:
         criteria_list (List[Dict[str, str]]): The output from extract_raw_criteria.
@@ -166,50 +215,13 @@ def extract_criteria_entities(criteria_list: List[Dict[str, str]], max_workers: 
 
     Returns:
         List[Dict[str, Any]]: The updated list of dicts, each now containing
-                               an 'entities' key with a list of extracted terms.
+                               a 'filter_tems' key with a list of extracted attribute/entity pairs.
     """
     
-    def process_criterion(criterion: Dict[str, str]) -> Dict[str, Any]:
-        prompt = f"""
-            You are given criterion text. Extract all specific entities present, for cohort building.
-            Specific Entities can be nouns, noun phrases, names, groups, identifiers, codes, ranges, or numbers.
-            Return the result as a JSON object with a key "entities".
-            Always Return only JSON and nothing else. Do not include markdown code blocks.
-
-            <Examples>
-                - Criterion: "have diabetes or hypertension"
-                - Result: {{"entities": ["diabetes", "hypertension"]}}
-                
-                - Criterion: "are women"
-                - Result: {{"entities": ["female"]}}
-
-                - Criterion: "are older than 50"
-                - Result: {{"entities": ["age > 50"]}}
-
-                - Criterion Text: "born between 1990 and 1997"
-                - Result: {{"entities": ["1990-1997"]}}
-
-                - Criterion Text: "diagnosis of melanoma"
-                - Result: {{"entities": ["melanoma"]}}
-            </Examples>
-
-            Input Criterion: "{criterion['text']}"
-            Result (strict JSON):
-        """
-
-        response = call_llm(user_prompt=prompt, response_model=EntitiesList)
-        new_criterion = criterion.copy()
-        if isinstance(response, EntitiesList):
-            new_criterion['entities'] = response.entities
-        else:
-            print(f"Error: Could not parse entities from text: '{criterion['text']}'")
-            new_criterion['entities'] = []
-        return new_criterion
-
     updated_criteria = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Launch tasks
-        futures = [executor.submit(process_criterion, c) for c in criteria_list]
+        futures = [executor.submit(_process_criterion, c) for c in criteria_list]
         for future in as_completed(futures):
             updated_criteria.append(future.result())
     
@@ -217,6 +229,7 @@ def extract_criteria_entities(criteria_list: List[Dict[str, str]], max_workers: 
     updated_criteria.sort(key=lambda x: criteria_list.index(next(c for c in criteria_list if c['text'] == x['text'])))
 
     return updated_criteria
+
 
 # -------------------------
 # Function 3: map_criteria_to_schema
@@ -275,9 +288,9 @@ def rerank_with_llm(
 
     prompt = f"""
     TASK:
-    Rank all candidates by relevance to the query.
-    Factor in the context if provided.
-
+    Rank all candidates by relevance to the query, from most to least relevant.
+    Use the context if provided.
+    
     INPUT:
     Query: {query}
     Context: {context}
@@ -292,12 +305,15 @@ def rerank_with_llm(
         "rankings": [
             {{ "rank": 1, "candidate": "<best candidate name>" }},
             {{ "rank": 2, "candidate": "<second best candidate name>" }},
-            {{ "rank": 3, "candidate": "<third best candidate name>" }}
+            ...
         ]
     }}
     """
 
-    response = call_llm(user_prompt=prompt, model='gpt-4o-mini', system_prompt='You are a ranking assistant', response_model=RerankResult)
+    response = call_llm(user_prompt=prompt, 
+                        model='gpt-4o-mini', 
+                        system_prompt='You are a ranking assistant', 
+                        response_model=RerankResult)
 
     if isinstance(response, RerankResult):
         # Convert list back into dict { "1": candidate, ... } if needed
@@ -320,39 +336,45 @@ class FieldMappingResponse(BaseModel):
     """LLM response for mapping entity to most probable field in a given table."""
     field: str = Field(..., description="Most relevant field name")
 
-def map_entity_to_table_field(entity: str, context_text: str, 
-                              schema: Dict, schema_embeddings: Dict, method: str = 'sequential') -> Dict[str, str]:
-    """Helper function to map a single entity to the most likely table and field.
+def map_entity_to_table_field(attribute: str, entity: str,
+                              context_text: str, 
+                              schema: Dict, schema_embeddings: Dict,
+                              concept_df: pd.DataFrame, concept_lookup: Dict, 
+                              method: str = 'aggregation', max_workers: int = 8) -> Dict[str, Any]:
+    """Helper function to map a single attribute-entity item to the most likely table and field.
     
         Args:
-            entity (str): entity string
-            context_text (str): the logical condition from which the entity was parsed
+            attribute (str): attribute to be mapped
+            entity (str): entity to be mapped
+            context_text (str): the logical condition from which the attr-entity was parsed
             schema (Dict): JSON of the DB schema 
             schema_embeddings (Dict): dict mapping table.field names to descriptions and text embeddings
+            concept_df (pandas.DataFrame): concept table with each unique DB concept and its parent table/field 
+            concept_lookup (Dict): dict mapping DB concepts (all unique object values) to numeric embeddings
             method (str): how the mapping from entity to table.field is to be done
+            max_workers (int): No. of workers.
 
         Returns:
-            Dict[str, Dict]: entity mapped to a dict with the table, field and ranked matches
+            Dict[str, Any]: entity mapped to a dict with the attribute, table, field and ranked matches
 
        `method` options:
         - 'sequential': map entity to likely table, then to likely column in the chosen table using an LLM;
           then retrieve similar fields with a similarity search on text summary embeddings and finally 
           rerank top_k matches 
-        - 'embed_rerank': embed entity + class, do similarity search followed by reranking of top_k matches 
+        - 'embed_rerank': embed attribute + entity, do similarity search followed by reranking of top_k matches 
           against field text embeddings
+        - 'entity_value_mapping': embed attribute + entity, find most similar unique concepts (values) with kNN,
+          then obtain the corresponding parent tables/fields
+        - 'aggregation': runs all the above 3 methods, aggregates their results, followed by LLM reranking
+        
+        TO-DO: 
+            Entity -> value mapping on a table which will contain all `object` type values.
+            String/regex searches in addition to semantic search.
     """
 
-    entity_class = call_llm(
-        user_prompt=f"""
-            Assign a biomedical category to the entity: "{entity}", given added context "{context_text}".
-            Always Return only the tag. 
-            Result (str):""",
-        response_model=EntityClassResponse
-    ).result
-        
     if method == 'embed_rerank':
-        # Append inferred class to entity, embed the combination, then map to most relevant field.
-        entity_emb = get_embedding(f'{entity}_{entity_class}')  # embed the entity + class string
+        # Embed the attr-entity combination, then map to most relevant field
+        entity_emb = get_embedding(f'{attribute}_{entity}')  # embed the attr + entity concatenated string
         # Step 1: kNN matches
         top_matches = find_matches(entity_emb, schema_embeddings, top_k=5)
         candidates = [(name, schema_embeddings[name]['text']) for name, _ in top_matches]
@@ -361,52 +383,49 @@ def map_entity_to_table_field(entity: str, context_text: str,
         if ranked_matches:
             try:
                 mapped_table_field = ranked_matches["1"]
-                return {"entity_class": entity_class, "table.field": mapped_table_field, "ranked_matches": list(ranked_matches.values())}
+                return {"attribute": attribute, "table.field": mapped_table_field, "ranked_matches": list(ranked_matches.values())}
             except Exception as e:
                 print(f'Error with LLM-reranking step for entity {entity}: {e}')
-                return {"entity_class": entity_class, "table.field": None, "ranked_matches": None}    
-        return {"entity_class": entity_class, "table.field": None, "ranked_matches": None}
+                return {"attribute": attribute, "table.field": None, "ranked_matches": None}    
+        return {"attribute": attribute, "table.field": None, "ranked_matches": None}
     
     elif method == 'sequential':
-        # Step 1: Map entity to the most probable Table
+        # Step 1: Map attr-entity to the most probable Table
         table_descriptions = {name: details['table_description'] for name, details in schema.items()}
         mapped_table = call_llm(
             user_prompt=f"""
-                Given entity "{entity}" with tag "{entity_class}" from context "{context_text}", 
-                map the entity to the most probable Table.
+                Given entity "{entity}" from attribute "{attribute}" in the selection criterion "{context_text}", 
+                map the entity to the most relevant Table.
                 Respond with only the Table name.
 
                 Tables:
                 {json.dumps(table_descriptions, indent=2)}
-
-                Most relevant Table (str):
                 """,
             response_model=TableMappingResponse
         ).table
 
         if mapped_table not in schema:
-            return {"entity_class": entity_class, "table.field": None, "ranked_matches": None}
+            return {"attribute": attribute, "table.field": None, "ranked_matches": None}
 
-        # Step 2: Map entity to the most probable Field within the selected table
+        # Step 2: Map attr-entity to the most probable Field within the selected table
         field_descriptions = schema[mapped_table]['fields']
         mapped_field = call_llm(
             user_prompt=f"""
-                Given entity "{entity}" with tag "{entity_class}" from context "{context_text}", 
-                map the entity to the most probable Field in "{mapped_table}" Table.
+                Given entity "{entity}" from attribute "{attribute}" in the selection criterion "{context_text}", 
+                map the entity to the most relevant Field in "{mapped_table}" Table.
+                The format of values in this field should align with the entity.
                 Respond with only the Field name.
 
                 Fields in "{mapped_table}":
                 {json.dumps(field_descriptions, indent=2)}
-
-                Most relevant Field (str):
                 """,
             response_model=FieldMappingResponse
         ).field
         
         if mapped_field not in field_descriptions:
-            return {"entity_class": entity_class, "table.field": f'{mapped_table}.?', "ranked_matches": None}
+            return {"attribute": attribute, "table.field": f'{mapped_table}.?', "ranked_matches": None}
             
-        # Find other fields similar to the chosen option based on vector embeddings, then rerank (Optional)
+        # Step 3: Find other fields similar to the chosen option based on vector embeddings, then rerank
         key = f'{mapped_table}.{mapped_field}'
         top_matches = find_matches(schema_embeddings[key]['embedding'], schema_embeddings, top_k=5)
         candidates = [(name, schema_embeddings[name]['text']) for name, _ in top_matches]
@@ -416,22 +435,62 @@ def map_entity_to_table_field(entity: str, context_text: str,
                 mapped_table, mapped_field = ranked_matches["1"].split('.')
             except Exception as e:
                 print(f'Error with LLM-reranking step for entity {entity}: {e}')
-                return {"entity_class": entity_class, "table.field": f'{mapped_table}.{mapped_field}', "ranked_matches": None}
+                return {"attribute": attribute, "table.field": f'{mapped_table}.{mapped_field}', "ranked_matches": None}
                 
-        return {"entity_class": entity_class, "table.field": f'{mapped_table}.{mapped_field}', "ranked_matches": list(ranked_matches.values())}
+        return {"attribute": attribute, "table.field": f'{mapped_table}.{mapped_field}', "ranked_matches": list(ranked_matches.values())}
+
+    elif method == 'entity_value_mapping':
+        entity_emb = get_embedding(f'{attribute}_{entity}')  # embed the attribute + entity concatenated string
+        query_vec = np.array(entity_emb).reshape(1, -1)  # shape (1, d)
+        emb_matrix = np.array(list(concept_lookup.values()))
+        sims = cosine_similarity(query_vec, emb_matrix)[0]  # shape (n,)    
+        # Get top_k indices
+        top_idxs = np.argsort(sims)[::-1][:5]
+        # get top matching unique values
+        top_values = [list(concept_lookup.keys())[i] for i in top_idxs]
+        #print(f"Top directly mapped values: {top_values}")
+        # retrieve the corresponding table.field columns
+        filter_rows = concept_df[concept_df.concept_with_context.isin(top_values)].set_index('concept_with_context').loc[top_values]
+        ranked_matches = list(set([f"{t}.{f}" for t,f in zip(filter_rows['table_name'], filter_rows['field_name'])]))
+        mapped_table, mapped_field = ranked_matches[0].split('.')
+        return {"attribute": attribute, "table.field": f'{mapped_table}.{mapped_field}', "ranked_matches": ranked_matches}
+    
+    elif method == 'aggregation':
+        # run all search options in parallel, merge the results and sort
+        options = ['embed_rerank','sequential','entity_value_mapping']
+        field_matches = []
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(map_entity_to_table_field, attribute, entity, 
+                                       context_text, schema, schema_embeddings, concept_df, concept_lookup,
+                                       method) for method in options]
+            for future in as_completed(futures):
+                result = future.result()
+                field_matches.extend(result.get('ranked_matches'))
+        field_matches = list(set(field_matches))
+        #print(f"All field matches: {field_matches}")
+        candidates = [(f, schema_embeddings[f]['text']) for f in field_matches]
+        context = f"The entity maps to attribute: `{attribute}`, and comes from the logical filter: `{context_text}`.\
+            Make use of the candidate descriptions and sample values format to decide relevance."
+        ranked_matches = rerank_with_llm(entity, candidates, context)
+        return {"attribute": attribute, "table.field": ranked_matches["1"], "ranked_matches": list(ranked_matches.values())}
 
 
 def map_criteria_to_schema(criteria_list: List[Dict[str, Any]],
                            db_schema: Dict,
                            schema_embeddings: Dict,
-                           method: str = 'sequential', max_workers: int = 8) -> List[Dict[str, Any]]:
+                           concept_df: pd.DataFrame,
+                           concept_lookup: Dict,
+                           method: str = 'aggregation', max_workers: int = 8) -> List[Dict[str, Any]]:
     """
     Maps extracted entities in each criterion to the database schema.
 
     Args:
         criteria_list (List[Dict[str, Any]]): The output from extract_criteria_entities.
         db_schema (Dict): The database schema.
-        method (str): Mapping logic followed (`sequential` or `embedding_reranking`)
+        schema_embeddings (Dict): Dict mapping table.field names to descriptions and text embeddings.
+        concept_df (pandas.DataFrame): Concept table with each unique DB concept and its parent table/field. 
+        concept_lookup (Dict): Dict mapping DB concepts (all unique object values) to numeric embeddings.
+        method (str): Mapping logic followed (`sequential` or `embed_rerank` or `entity_value_mapping` or `aggregation`).
         max_workers (int): No. of workers.
 
     Returns:
@@ -439,18 +498,18 @@ def map_criteria_to_schema(criteria_list: List[Dict[str, Any]],
                                a 'db_mappings' key with entity -> table.field assignments.
     """
 
-    def process_entity(idx: int, entity: str, text: str):
-        mapping = map_entity_to_table_field(entity, text, db_schema, schema_embeddings, method)
+    def process_entity(idx: int, attribute: str, entity: str, text: str):
+        mapping = map_entity_to_table_field(attribute, entity, text, db_schema, schema_embeddings, concept_df, concept_lookup, method)
         return idx, entity, mapping
 
     results = [{} for _ in criteria_list]
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
-            executor.submit(process_entity, i, entity, crit['text'])
+            executor.submit(process_entity, i, attribute, entity, crit['text'])
             for i, crit in enumerate(criteria_list)
-            if crit.get('entities')
-            for entity in crit['entities']
+            if crit.get('filter_items')
+            for attribute, entity in crit['filter_items']
         ]
         for future in as_completed(futures):
             idx, entity, mapping = future.result()
@@ -678,7 +737,8 @@ def rewrite_text_with_mapping(text: str, mapping: dict) -> str:
     Rewrite the criterion text into a logical condition string.
     Use BOTH the field name (`table.field`) and the mapped value (`mapped_concept`) 
     when available. Strings should be in single quotes, numerics unquoted.
-    Preserve logical operators (`AND`/`OR`/`NOT`) and numeric constraints. 
+    Preserve logical clauses (`AND`/`OR`/`NOT`) and numeric constraints.
+    Valid operators: `=`, `>`, `<`, `>=`, `<=`, `!=`, `IN`
     Expand out numeric ranges if any.
 
     <Examples>
@@ -1104,6 +1164,65 @@ def build_query_from_criteria(criteria, tables, schema_keys, root="main"):
         "sql_query": query_str
     }
 
+
+# -------------------------
+# SQL execution on Polly Atlas
+# -------------------------
+def execute_sql_query(state: Dict):
+    """
+    Executes the SQL query generated in the final stage on Polly Atlas.
+    Displays and saves the results as a CSV.
+    """
+    sql_query = state["sql_query"]
+    if not sql_query:
+        print("[WARN] No SQL query found in the current criteria; skipping execution.")
+        return state
+
+    # Clean query by removing newlines, tabs, and redundant spaces
+    clean_query = " ".join(sql_query.split())
+
+    # --- Polly setup ---
+    AUTH_KEY = os.getenv("POLLY_AUTH_KEY", "")
+    ATLAS_ID = os.getenv("POLLY_ATLAS_ID", "beataml2")
+
+    if not AUTH_KEY:
+        raise ValueError("Missing Polly Auth Key. Please set POLLY_AUTH_KEY environment variable.")
+
+    print(f"\n[INFO] Authenticating with Polly and connecting to Atlas: {ATLAS_ID}")
+    Polly.auth(AUTH_KEY, env="polly")
+    atlas = Atlas(atlas_id=ATLAS_ID)
+
+    # --- Execute query ---
+    print(f"\n[INFO] Executing SQL Query:\n{clean_query}\n")
+    try:
+        result = atlas.query(clean_query)
+        df = pd.DataFrame(result)
+    except Exception as e:
+        print(f"[ERROR] Query execution failed: {e}")
+        return state
+
+    # --- Display and save results ---
+    print(f"\n[INFO] Query executed successfully. Retrieved {len(df)} rows.")
+    print(df)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = "atlas_query_results"
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = f"{output_dir}/query_result_{ATLAS_ID}_{timestamp}.csv"
+
+    df.to_csv(output_file, index=False)
+    print(f"[INFO] Results saved to: {output_file}\n")
+
+    # Store preview and metadata in state
+    state["query_result_metadata"] = {
+        "row_count": len(df),
+        "saved_to": output_file
+    }
+    # Optional: store results as list of dicts
+    state["query_result"] = df.to_dict(orient="records")
+
+    return state
+
 # -------------------------
 # LLM decision agent
 # -------------------------
@@ -1128,11 +1247,11 @@ def agent_decide(conversation_history: List[str], current_criteria: Dict) -> Age
         TASK: Analyze the recent conversation history and current state, then decide on your next action.
 
         <ACTIONS>
-        - `advance`: run the next step after user explicilty approves current result
+        - `advance`: run the next step after user explicitly approves current result
         - `edit`: refine the current state based on feedback
         - `undo`: undo the last edit made and go back to previous state
-        - `clarify`: ask a clarifying question if user input is unclear (acronyms, vague attributes, conflicts) 
-                        or does not apply to current state
+        - `clarify`: ask a clarifying question if user input is unclear (acronyms, vague attributes, 
+                     overly broad entities, conflicts), or does not apply to current state
         - `reject`: flag irrelevant or out-of-scope input; stop
         </ACTIONS>
 
@@ -1147,12 +1266,13 @@ def agent_decide(conversation_history: List[str], current_criteria: Dict) -> Age
         <STATES>
         - 0: initial user query, no logical criteria generated
         - 1: eligibility criteria generated
-        - 2: entities parsed from criteria
-        - 3: parsed entities mapped to DB schema
-        - 3: entities mapped to DB concepts/values
-        - 5: Criteria rewritten with the mapped entities
+        - 2: attributes/entities parsed from criteria
+        - 3: parsed items mapped to DB schema
+        - 4: entities mapped to DB concepts/values
+        - 5: Criteria rewritten to respect DB schema
         - 6: Criteria validated for DB compatibility
         - 7: SQL query generated from criteria
+        - 8: SQL query executed, results retrieved
         </STATES>
 
         Current State: {current_criteria}
@@ -1205,16 +1325,16 @@ def process_query(state_dict: Dict, stage_counter: int, db_schema, db_embeddings
             feedback,
         )
     elif stage_counter == 1:
-        print(f"> Agent to User: Entity extraction from criteria")
+        print(f"> Agent to User: Extracting attributes and entities from criteria")
         result = extract_criteria_entities(state_dict["current_criteria"])
     elif stage_counter == 2:
-        print(f"> Agent to User: Mapping parsed entities to schema")
-        result = map_criteria_to_schema(state_dict["current_criteria"], db_schema, db_embeddings, method)
+        print(f"> Agent to User: Mapping parsed items to schema")
+        result = map_criteria_to_schema(state_dict["current_criteria"], db_schema, db_embeddings, concept_df, concept_lookup, method)
     elif stage_counter == 3:
         print(f"> Agent to User: Mapping entities to concepts")
         result = map_entity_to_concept(state_dict["current_criteria"], concept_df, concept_lookup)
     elif stage_counter == 4:
-        print(f"> Agent to User: Rewriting criteria based on mapped entities")
+        print(f"> Agent to User: Rewriting criteria in accordance with database schema")
         result = rewrite_user_criteria(state_dict["current_criteria"])
     elif stage_counter == 5:
         print(f"> Agent to User: Validating criteria for database compatibility")
@@ -1232,6 +1352,9 @@ def process_query(state_dict: Dict, stage_counter: int, db_schema, db_embeddings
             for t, cols in schema.items()
         }
         result = build_query_from_criteria(state_dict["current_criteria"], tables, schema_keys, root)
+    elif stage_counter == 7:
+        print(f"> Agent to User: Executing SQL query to retrieve results")
+        result = execute_sql_query(state_dict["current_criteria"])
     return result
 
 
@@ -1299,7 +1422,7 @@ class EntityCriteriaState(BaseModel):
 
 # Stage 3 → Schema mapping
 class MappingInfo(BaseModel):
-    entity_class: Optional[str] = None
+    attribute: Optional[str] = None
     table_field: Optional[str] = Field(
         None, alias="table.field", description="Schema table + field"
     )
@@ -1416,7 +1539,7 @@ def dict_to_db_mappings_list(db_map_dict: Dict[str, Dict[str, Any]]) -> List[Dic
         # prefer table.field -> convert to table_field for model validation
         table_field = m.get("table.field", m.get("table_field", None))
         normalized = {
-            "entity_class": m.get("entity_class"),
+            "attribute": m.get("attribute"),
             "table_field": table_field,
             "ranked_matches": m.get("ranked_matches"),
             "mapped_concept": m.get("mapped_concept"),
@@ -1516,7 +1639,7 @@ def edit_tool(user_input: str, state_dict: Dict, stage_counter: int):
                 {{
                 "entity": "<entity_string>",
                 "mapping": {{
-                    "entity_class": "...",
+                    "attribute": "...",
                     "table_field": "...",
                     "ranked_matches": [...],
                     "mapped_concept": "...",
@@ -1700,7 +1823,7 @@ def route_action(state: AgentState) -> str:
     """
     action = state.get("agent", {}).get("action", "stop")
     # Prevent infinite run: if agent chooses advance while stage_counter at max stage (7) -> END
-    if action == "advance" and state.get("stage_counter", 0) >= 7:
+    if action == "advance" and state.get("stage_counter", 0) >= 8:
         return "stop"
     return action
 
@@ -1711,7 +1834,7 @@ def main():
     global DB_SCHEMA, DB_EMBEDDINGS, CONCEPT_DF, CONCEPT_LOOKUP, SCHEMA_KEYS, ROOT_TABLE, FIELD_MAPPING_METHOD
 
     ROOT_TABLE = "patient"
-    FIELD_MAPPING_METHOD = "sequential"
+    FIELD_MAPPING_METHOD = "aggregation"
 
     # load DB schema, embeddings, concept table etc.
     with open('./BeatAML/BeatAML_schema.json', 'r') as f:
@@ -1733,6 +1856,7 @@ def main():
     workflow.add_node("edit", edit_node)
     workflow.add_node("undo", undo_node)
     workflow.add_node("user", user_node)
+
     workflow.add_edge(START, "user")
     workflow.add_conditional_edges(
         "agent", route_action,
@@ -1742,7 +1866,7 @@ def main():
             "clarify": "user",
             "undo": "undo",
             "reject": END,
-            "stop": END
+            "stop": END,
         }
     )
     workflow.add_edge("advance", "user")
