@@ -31,7 +31,7 @@ from polly.auth import Polly
 from polly.atlas import Atlas
 
 # OpenAI API Key
-#os.environ['OPENAI_API_KEY'] = "your_api_key"
+#os.environ['OPENAI_API_KEY'] = ""
 #client = OpenAI()
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -199,7 +199,8 @@ def _process_criterion(criterion: Dict[str, str]) -> Dict[str, Any]:
     response = call_llm(user_prompt=prompt, response_model=FilterItemList)
     new_criterion = criterion.copy()
     if isinstance(response, FilterItemList):
-        new_criterion['filter_items'] = [(r.attribute, r.entity) for r in response.items]
+        new_criterion["filter_items"] = [{"attribute": r.attribute, "entity": r.entity} for r in response.items]
+
     else:
         print(f"Error: Could not parse entities from text: '{criterion['text']}'")
         new_criterion['filter_items'] = []
@@ -324,9 +325,11 @@ def rerank_with_llm(
 
 
 #------------------------------
+'''
 class EntityClassResponse(BaseModel):
     """LLM response for entity classification."""
     result: str = Field(..., description="Biomedical category tag for the entity")
+'''
 
 class TableMappingResponse(BaseModel):
     """LLM response for mapping entity to most probable table."""
@@ -506,10 +509,11 @@ def map_criteria_to_schema(criteria_list: List[Dict[str, Any]],
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
-            executor.submit(process_entity, i, attribute, entity, crit['text'])
+            executor.submit(process_entity, i, attribute, entity, crit.get("text"))
             for i, crit in enumerate(criteria_list)
-            if crit.get('filter_items')
-            for attribute, entity in crit['filter_items']
+            if crit.get("filter_items")
+            for item in crit["filter_items"]
+            for attribute, entity in [(item.get("attribute"), item.get("entity"))]
         ]
         for future in as_completed(futures):
             idx, entity, mapping = future.result()
@@ -526,19 +530,24 @@ def map_criteria_to_schema(criteria_list: List[Dict[str, Any]],
 
 
 class ConceptMappingResult(BaseModel):
-    concept: Optional[str] = Field(None, description="The best matching concept from candidates or None if no match")
+    concept: Optional[List[str]] = Field(
+        None,
+        description="One or more best matching concepts from candidates or None if no match"
+    )
     reason: str = Field(..., description="One short sentence explaining the choice")
     top_5: List[str] = Field(..., description="Ranked list of up to 5 candidate concepts")
+
 
 def _llm_choose_best_concept(entity: str, table: str, field: str, candidates: List[str], model: str = "gpt-4o-mini"):
     bullet_list = "\n".join(f"- {c}" for c in candidates)
     prompt = f"""
-    You are helping map a user-provided entity to the best matching concept for a specific database field.
+    You are helping map a user-provided entity to the most relevant concept(s) for a specific database field.
     
     TASK:
-    - Pick exactly one best concept (verbatim from the list) or return null if none match well.
+    - Select one or more highly relevant concepts (verbatim from the list) that best match the entity.
+    - If none are suitable, return null.
     - Provide a short reason for the choice.
-    - Provide a ranked list of up to 5 candidate concepts.
+    - Also include a ranked list of up to 5 most relevant candidates.
 
     CONTEXT:
     - Table: {table}
@@ -551,7 +560,7 @@ def _llm_choose_best_concept(entity: str, table: str, field: str, candidates: Li
     OUTPUT FORMAT:
     Return strict JSON only, matching this schema:
     {{
-      "concept": "<best concept or null>",
+      "concept": ["<one or more concepts>" or null],
       "reason": "<short sentence>",
       "top_5": ["<concept1>", "<concept2>", ...]
     }}
@@ -561,7 +570,7 @@ def _llm_choose_best_concept(entity: str, table: str, field: str, candidates: Li
         result = call_llm(
             user_prompt=prompt,
             model=model,
-            system_prompt="You are a precise data-mapping assistant who chooses the best concept label.",
+            system_prompt="You are a precise data-mapping assistant who selects one or more best concept labels.",
             response_model=ConceptMappingResult,
         )
         if isinstance(result, ConceptMappingResult):
@@ -570,6 +579,7 @@ def _llm_choose_best_concept(entity: str, table: str, field: str, candidates: Li
             return None, "Invalid response format", []
     except Exception as e:
         return None, f"LLM call failed: {e}", []
+
 
 def search_concept_for_entity(
     entity,
@@ -600,10 +610,11 @@ def search_concept_for_entity(
     num_unique = len(subset_unique)
 
     # ---- Small set: LLM decision ----
-    if num_unique <= 10:
+    if num_unique <= 50:
         candidates = subset_unique["concept_name"].tolist()
-        chosen, reason, top_candidates = _llm_choose_best_concept(entity, table, field, candidates, model=model_llm)
-        if chosen is None or str(chosen).strip().lower() in ("", "null"):
+        chosen_list, reason, top_candidates = _llm_choose_best_concept(entity, table, field, candidates, model=model_llm)
+
+        if not chosen_list or all(str(c).strip().lower() in ("", "null") for c in chosen_list):
             return {
                 "concept_name": None,
                 "concept_with_context": None,
@@ -612,10 +623,11 @@ def search_concept_for_entity(
                 "reason": reason,
                 "top_candidates": top_candidates
             }
-        row = subset_unique[subset_unique["concept_name"].str.lower().str.strip() == chosen.lower().strip()].iloc[0]
+
+        matched_rows = subset_unique[subset_unique["concept_name"].str.lower().isin([c.lower() for c in chosen_list])]
         return {
-            "concept_name": row["concept_name"],
-            "concept_with_context": row["concept_with_context"],
+            "concept_name": matched_rows["concept_name"].tolist(),
+            "concept_with_context": matched_rows["concept_with_context"].tolist(),
             "similarity": None,
             "method": "LLM_decision",
             "reason": reason,
@@ -643,17 +655,14 @@ def search_concept_for_entity(
             "top_candidates": []
         }
 
-    # Top-k by cosine similarity
     best_idxs = sims.argsort()[::-1][:top_k]
     top_candidates = [subset_unique.iloc[i]["concept_name"] for i in best_idxs]
 
-    best_row = subset_unique.iloc[best_idxs[0]]
-    best_score = float(sims[best_idxs[0]])
-
+    matched_rows = subset_unique.iloc[best_idxs]
     return {
-        "concept_name": best_row["concept_name"],
-        "concept_with_context": best_row["concept_with_context"],
-        "similarity": best_score,
+        "concept_name": matched_rows["concept_name"].tolist(),
+        "concept_with_context": matched_rows["concept_with_context"].tolist(),
+        "similarity": [float(sims[i]) for i in best_idxs],
         "method": "semantic_search",
         "reason": None,
         "top_candidates": top_candidates
@@ -1044,11 +1053,16 @@ def build_query_from_criteria(criteria, tables, schema_keys, root="main"):
             # Handle other operators
             else:
                 # Strip quotes if string, else cast to int/float
-                if val_str.startswith("'") and val_str.endswith("'"): 
-                    val = val_str.strip("'")
-                else:
-                    try: val = int(val_str)
-                    except ValueError: val = float(val_str)
+                val_str = val_str.strip("'")
+                val = val_str  # default: treat as string
+                if not (val_str.startswith("'") and val_str.endswith("'")):
+                    try:
+                        val = int(val_str)
+                    except ValueError:
+                        try:
+                            val = float(val_str)
+                        except ValueError:
+                            pass  # keep as string (includes booleans or other text)
 
                 # Operator mapping
                 ops = { "=": lambda c, v: c == v, ">": lambda c, v: c > v, "<": lambda c, v: c < v,
@@ -1151,8 +1165,17 @@ def build_query_from_criteria(criteria, tables, schema_keys, root="main"):
             # Having filters are guaranteed to be simple by our categorization logic
             parts = f['revised_criterion'].strip().split(maxsplit=2)
             table, col = parts[0].split('.'); val_str = parts[2]
-            if val_str.startswith("'"): val = val_str.strip("'")
-            else: val = int(val_str)
+            val_str = val_str.strip("'")
+            val = val_str  # default: treat as string
+            if not (val_str.startswith("'") and val_str.endswith("'")):
+                try:
+                    val = int(val_str)
+                except ValueError:
+                    try:
+                        val = float(val_str)
+                    except ValueError:
+                        pass  # keep as string (includes booleans or other text)
+
             col_expr = tables[table].c[col]
             condition = func.count(case((col_expr == val, 1))) > 0
             having_clauses.append(condition)
@@ -1837,14 +1860,14 @@ def main():
     FIELD_MAPPING_METHOD = "aggregation"
 
     # load DB schema, embeddings, concept table etc.
-    with open('./BeatAML/BeatAML_schema.json', 'r') as f:
+    with open('./databases/BeatAML/BeatAML_schema.json', 'r') as f:
         DB_SCHEMA = json.load(f)
-    with open('./BeatAML/BeatAML_schema_keys.json', 'r') as f:
+    with open('./databases/BeatAML/BeatAML_schema_keys.json', 'r') as f:
         SCHEMA_KEYS = json.load(f)
-    with open('./BeatAML/db_table_field_embeddings.json', 'r') as f:
+    with open('./databases/BeatAML/db_table_field_embeddings.json', 'r') as f:
         DB_EMBEDDINGS = json.load(f)
-    CONCEPT_DF = pd.read_csv("BeatAML/concept_table.csv")
-    with open("BeatAML/concept_embeddings.pkl", "rb") as f:
+    CONCEPT_DF = pd.read_csv("./databases/BeatAML/concept_table_new.csv")
+    with open("./databases/BeatAML/concept_embeddings_new.pkl", "rb") as f:
         data = pickle.load(f)
     concepts = data["concepts"]
     embeddings = data["embeddings"]
