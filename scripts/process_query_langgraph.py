@@ -5,7 +5,6 @@ Description: Sequential workflow for cohort criteria generation from a user quer
 """
 
 # import libraries
-from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import uuid
@@ -30,11 +29,18 @@ from langgraph.checkpoint.memory import InMemorySaver
 from polly.auth import Polly
 from polly.atlas import Atlas
 
-# OpenAI API Key
-#os.environ['OPENAI_API_KEY'] = ""
-#client = OpenAI()
+# Load .env
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# OpenAI
+from openai import OpenAI
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Gemini
+from google import genai
+from google.genai import types
+gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
 
 # -------------------------
 # Helper function to call LLM
@@ -42,13 +48,14 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def call_llm(
     user_prompt: str,
-    model: str = "gpt-4.1-mini",
+    model: str = "gemini-2.5-flash",
     temperature: float = 0.0,
     system_prompt: str = "You are a biomedical expert agent.",
     response_model: Optional[Type[BaseModel]] = None,
 ) -> BaseModel | str:
     """
-    Generalized function to call LLM with flexible settings and structured output.
+    Unified function for OpenAI GPT + Google Gemini with flexible settings and structured output.
+    Handles models that do not support temperature (e.g., gpt-5).
 
     Args:
         user_prompt (str): The main input prompt for the model.
@@ -60,23 +67,114 @@ def call_llm(
     Returns:
         BaseModel | str: A validated Pydantic model instance if response_model is provided, otherwise raw text output.
     """
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
 
-    kwargs = {
-        "model": model,
-        "input": messages,
-        "temperature": temperature,
-    }
+    # =========================================================
+    #  CASE 1 — OpenAI Models ("gpt-*")
+    # =========================================================
+    if model.startswith("gpt"):
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
 
-    if response_model:
-        kwargs["text_format"] = response_model
+        kwargs = {
+            "model": model,
+            "input": messages,
+        }
 
-    response = client.responses.parse(**kwargs)
+        # Some OpenAI models do NOT support temperature (e.g., gpt-5)
+        OPENAI_MODELS_WITHOUT_TEMP = ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-pro", "gpt-5.1"]
 
-    return response.output_parsed if response_model else response.output_text
+        if not any(model.startswith(m) for m in OPENAI_MODELS_WITHOUT_TEMP):
+            kwargs["temperature"] = temperature
+
+        # Pydantic structured output
+        if response_model:
+            kwargs["text_format"] = response_model
+
+        response = openai_client.responses.parse(**kwargs)
+
+        return response.output_parsed if response_model else response.output_text
+
+    # =========================================================
+    #  CASE 2 — Google Gemini ("gemini-*")
+    # =========================================================
+    elif model.startswith("gemini"):
+
+        # Build request
+        contents = [
+            types.Content(
+                role="user", 
+                parts=[types.Part(text=user_prompt)]
+            )
+        ]
+
+        config_kwargs = {}
+
+        if temperature is not None:
+            config_kwargs["temperature"] = temperature
+
+        # Add JSON schema if Pydantic model is provided
+        if response_model:
+            config_kwargs["response_mime_type"] = "application/json"
+            config_kwargs["response_schema"] = response_model.model_json_schema()
+
+        config_kwargs["system_instruction"] = system_prompt
+        
+        # Build the final config
+        config = types.GenerateContentConfig(**config_kwargs)
+
+        gen_kwargs = {
+            "model": model,
+            "contents": contents,
+            "config": config,
+        }
+
+        response = gemini_client.models.generate_content(**gen_kwargs)
+
+        text = response.text
+
+        return response_model.model_validate_json(text) if response_model else text
+
+    # =========================================================
+    #  UNSUPPORTED MODEL
+    # =========================================================
+    else:
+        raise ValueError(f"Unsupported model type: {model}")
+
+
+# -------------------------
+# Helper function to call appropriate embedding model
+# -------------------------
+
+def get_generic_embedding(text: str, model: str = "text-embedding-3-small") -> List[float]:
+    """
+    Unified embedding function for OpenAI + Google Gemini.
+    """
+
+    clean_text = text.replace("\n", " ")
+
+    # -------------------------------
+    # OpenAI embeddings (e.g., "text-embedding-3-small")
+    # -------------------------------
+    if model.startswith("text-embedding"):
+        response = openai_client.embeddings.create(
+            model=model,
+            input=[clean_text],
+        )
+        return response.data[0].embedding
+
+    # -------------------------------
+    # Gemini embeddings (e.g., "gemini-embedding-001")
+    # -------------------------------
+    if model.startswith("gemini-embedding"):
+        response = gemini_client.models.embed_content(
+            model=model,
+            contents=clean_text,
+        )
+        return response.embeddings[0].values
+
+    raise ValueError(f"Unknown embedding model type: {model}")
 
 
 # -------------------------
@@ -237,12 +335,12 @@ def extract_criteria_entities(criteria_list: List[Dict[str, str]], max_workers: 
 # -------------------------
 
 ## Utils
-def get_embedding(text: str, model="text-embedding-3-small") -> List[float]:
-    """ 
-    Embed a query text string (entity or phrase) using an OpenAI model
+def get_embedding(text: str) -> List[float]:
     """
-    text = text.replace("\n", " ")
-    return client.embeddings.create(input = [text], model=model).data[0].embedding
+    Embed a query text string (entity or phrase)
+    """
+    return get_generic_embedding(text)
+
 
 def find_matches(
     query_embedding: List[float],
@@ -312,7 +410,6 @@ def rerank_with_llm(
     """
 
     response = call_llm(user_prompt=prompt, 
-                        model='gpt-4o-mini', 
                         system_prompt='You are a ranking assistant', 
                         response_model=RerankResult)
 
@@ -538,7 +635,7 @@ class ConceptMappingResult(BaseModel):
     top_5: List[str] = Field(..., description="Ranked list of up to 5 candidate concepts")
 
 
-def _llm_choose_best_concept(entity: str, table: str, field: str, candidates: List[str], model: str = "gpt-4o-mini"):
+def _llm_choose_best_concept(entity: str, table: str, field: str, candidates: List[str]):
     bullet_list = "\n".join(f"- {c}" for c in candidates)
     prompt = f"""
     You are helping map a user-provided entity to the most relevant concept(s) for a specific database field.
@@ -569,7 +666,6 @@ def _llm_choose_best_concept(entity: str, table: str, field: str, candidates: Li
     try:
         result = call_llm(
             user_prompt=prompt,
-            model=model,
             system_prompt="You are a precise data-mapping assistant who selects one or more best concept labels.",
             response_model=ConceptMappingResult,
         )
@@ -587,9 +683,7 @@ def search_concept_for_entity(
     field,
     concept_df,
     concept_lookup,
-    top_k=5,
-    model_embed="text-embedding-3-small",
-    model_llm="gpt-4o-mini"
+    top_k=5
 ):
     subset = concept_df[
         (concept_df["table_name"] == table) &
@@ -612,7 +706,7 @@ def search_concept_for_entity(
     # ---- Small set: LLM decision ----
     if num_unique <= 50:
         candidates = subset_unique["concept_name"].tolist()
-        chosen_list, reason, top_candidates = _llm_choose_best_concept(entity, table, field, candidates, model=model_llm)
+        chosen_list, reason, top_candidates = _llm_choose_best_concept(entity, table, field, candidates)
 
         if not chosen_list or all(str(c).strip().lower() in ("", "null") for c in chosen_list):
             return {
@@ -638,11 +732,7 @@ def search_concept_for_entity(
     subset_ctx = subset_unique["concept_with_context"].tolist()
     subset_embs = np.vstack([concept_lookup[c] for c in subset_ctx])
 
-    query_emb = client.embeddings.create(
-        model=model_embed,
-        input=entity
-    ).data[0].embedding
-    query_emb = np.array(query_emb).reshape(1, -1)
+    query_emb = np.array(get_generic_embedding(entity)).reshape(1, -1)
 
     sims = cosine_similarity(query_emb, subset_embs)[0]
     if sims.size == 0:
@@ -855,7 +945,6 @@ def _validate_single_value(value, col_type, col_info):
     """
     response = call_llm(
         user_prompt=prompt,
-        model="gpt-4o-mini",
         system_prompt="You are a strict data format validation agent.",
         response_model=ValidatedExpr
     )
