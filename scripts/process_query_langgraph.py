@@ -1131,11 +1131,17 @@ def build_query_from_criteria(criteria, tables, schema_keys, root="main"):
             # Handle IN clause
             if op.upper() == 'IN':
                 try:
-                    # Safely evaluate the string representation of the list
-                    list_of_values = ast.literal_eval(val_str)
-                    if not isinstance(list_of_values, list):
-                        raise ValueError("Value for IN operator must be a list.")
+                    parsed = ast.literal_eval(val_str)
+
+                    # Allow list or tuple — convert tuple → list
+                    if isinstance(parsed, (list, tuple)):
+                        list_of_values = list(parsed)
+                    else:
+                        # Allow scalar values: IN 'White' → ['White']
+                        list_of_values = [parsed]
+
                     return col_expr.in_(list_of_values)
+
                 except (ValueError, SyntaxError) as e:
                     raise ValueError(f"Could not parse list for IN condition: {val_str}") from e
 
@@ -1865,6 +1871,27 @@ class AgentState(TypedDict):
     last_state: Any
     agent: Dict[str, Any]
 
+MACRO_STAGE_A = [0, 1, 2]
+MACRO_STAGE_A_revisit = [1, 2]
+MACRO_STAGE_B = [3]
+MACRO_STAGE_C = [4, 6] # Skipping Validation Stage
+MACRO_STAGE_D = [7]
+
+def run_macro_stage(state: AgentState, stages: list[int]) -> AgentState:
+    """
+    Run multiple micro-stages sequentially as a single macro-stage.
+    """
+    for stage in stages:
+        state["stage_counter"] = stage
+        result = process_query(
+            state, 
+            stage, 
+            DB_SCHEMA, DB_EMBEDDINGS, CONCEPT_DF, CONCEPT_LOOKUP,
+            SCHEMA_KEYS, ROOT_TABLE, FIELD_MAPPING_METHOD
+        )
+        state["current_criteria"] = result
+        
+    return state
 
 def react_agent(state: AgentState) -> AgentState:
     """
@@ -1881,7 +1908,7 @@ def react_agent(state: AgentState) -> AgentState:
     print(f"\nAgent thinking: {decision.thinking}")
     return state
 
-
+'''
 def process_query_node(state: AgentState) -> AgentState:
     """
     LangGraph node: advance (process next stage)
@@ -1914,7 +1941,71 @@ def process_query_node(state: AgentState) -> AgentState:
     print(f"\nProcessed stage {sc}. Updated criteria:")
     print(json.dumps(result, indent=2, default=str))
     return state
+'''
 
+def process_query_node(state: AgentState) -> AgentState:
+    """
+    LangGraph node: advance (process next stage)
+    """
+    sc = state["stage_counter"]
+
+    # ------ Macro-Stage A ------
+    if sc == 0:
+        state = run_macro_stage(state, MACRO_STAGE_A)
+        state["stage_counter"] = 3  # start of next macro stage
+        print(f"\nUpdated criteria:")
+        print(json.dumps(state['current_criteria'], indent=2, default=str))
+        return state
+    
+    # ------ Macro-Stage A Revisit ------
+    if sc == 1:
+        state = run_macro_stage(state, MACRO_STAGE_A_revisit)
+        state["stage_counter"] = 3  # start of next macro stage
+        print(f"\nUpdated criteria:")
+        print(json.dumps(state['current_criteria'], indent=2, default=str))
+        return state
+    
+    # ------ Macro-Stage B ------
+    if sc == 3:
+        state = run_macro_stage(state, MACRO_STAGE_B)
+        state["stage_counter"] = 4  # start of next macro stage
+        print(f"\nUpdated criteria:")
+        print(json.dumps(state['current_criteria'], indent=2, default=str))
+        return state
+
+    # ------ Macro-Stage C ------
+    if sc == 4:
+        state = run_macro_stage(state, MACRO_STAGE_C)
+        state["stage_counter"] = 7  # now ready for SQL execution
+        print(f"\nUpdated criteria:")
+        print(json.dumps(state['current_criteria'], indent=2, default=str))
+        return state
+
+    # ------ Macro-Stage D ------
+    if sc == 7:
+        # Final stage executes SQL normally
+        state = run_macro_stage(state, MACRO_STAGE_D)
+
+        # Reset to stage-1 behavior
+        state["stage_counter"] = 1
+
+        # Keep only type + text
+        cleaned_criteria = []
+        for c in state.get("criteria", []):
+            cleaned_criteria.append({
+                "type": c.get("type"),
+                "text": c.get("text")
+            })
+        state["criteria"] = cleaned_criteria
+
+        # --- remove any other stage-2+ fields ---
+        for key in ("sql_query", "query_result", "query_result_metadata"):
+            state.pop(key, None)
+        
+        # DO NOT PRINT at the end of stage 8
+        return state
+
+    return state
 
 def edit_node(state: AgentState) -> AgentState:
     """
