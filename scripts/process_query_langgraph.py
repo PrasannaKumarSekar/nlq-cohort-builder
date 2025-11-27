@@ -1467,6 +1467,11 @@ def process_query(state_dict: Dict, stage_counter: int, db_schema, db_embeddings
     elif stage_counter == 7:
         print(f"> Agent to User: Executing SQL query to retrieve results")
         result = execute_sql_query(state_dict["current_criteria"])
+        print("\n--- Cohort retrieved. You may now:")
+        print("* refine (edit criteria)")
+        print("* add more criteria")
+        print("* drop criteria")
+        print("* or type 'exit' to end session")
     return result
 
 
@@ -1885,6 +1890,27 @@ def process_query_node(state: AgentState) -> AgentState:
     result = process_query(state, sc, DB_SCHEMA, DB_EMBEDDINGS, CONCEPT_DF, CONCEPT_LOOKUP, SCHEMA_KEYS, ROOT_TABLE, FIELD_MAPPING_METHOD)
     state["current_criteria"] = result
     state["stage_counter"] = sc + 1
+
+    # If we just completed stage 8 (SQL executed), reset stage counter back to 1
+    if state["stage_counter"] >= 8:
+        state["stage_counter"] = 1
+        # --- RESET CRITERIA BUT KEEP ONLY type + text ---
+        cleaned_criteria = []
+        for c in state.get("criteria", []):
+            cleaned_criteria.append({
+                "type": c.get("type"),
+                "text": c.get("text")
+            })
+        state["criteria"] = cleaned_criteria
+
+        # --- remove any other stage-2+ fields ---
+        state.pop("sql_query", None)
+        state.pop("query_result_metadata", None)
+        state.pop("query_result", None)
+
+        # DO NOT PRINT at the end of stage 8
+        return state
+
     print(f"\nProcessed stage {sc}. Updated criteria:")
     print(json.dumps(result, indent=2, default=str))
     return state
@@ -1917,7 +1943,7 @@ def user_node(state: AgentState) -> Tuple[AgentState, Command[Literal["agent", E
         state["original_query"] = user_in
     state["user_input"] = user_in
     state["conversation_history"].append({"user": user_in})
-    if user_in.lower().strip() in ["quit", "exit"]:
+    if user_in.lower().strip() in ["quit", "exit", "end"]:
         return state, Command(goto=END)
     return state, Command(goto="agent")
 
@@ -1935,8 +1961,8 @@ def route_action(state: AgentState) -> str:
     """
     action = state.get("agent", {}).get("action", "stop")
     # Prevent infinite run: if agent chooses advance while stage_counter at max stage (7) -> END
-    if action == "advance" and state.get("stage_counter", 0) >= 8:
-        return "stop"
+    #if action == "advance" and state.get("stage_counter", 0) >= 8:
+    #    return "stop"
     return action
 
 # -------------------------
