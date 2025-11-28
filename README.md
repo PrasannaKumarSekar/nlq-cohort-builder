@@ -13,3 +13,20 @@
 * **Structured Validation with Pydantic** – Enforces consistent schema for each stage, reducing errors from LLM output.
 * **User Feedback Loop** – Supports iterative edits/refinements to criteria.
 * **SQL Generation** – Produces optimized cohort queries from refined criteria.
+
+
+## Installation and usage
+```
+# Install uv
+uv venv cohort_builder
+source ./cohort_builder/bin/activate
+uv pip install -r requirements.txt
+```
+or
+
+```
+# Create conda/pip venv
+conda create -n cohort_builder
+conda activate cohort_builder
+pip install -r requirements.txt
+```
