@@ -87,3 +87,10 @@ The analysis module uses a **Strict AST Whitelist** approach.
 *   **`main.py`**: The entry point. Initializes the LangGraph agent, sets up the session environment, and handles the chat loop.
 *   **`tool_functions.py`**: Contains the tool definitions for schema inspection, SQL generation, data retrieval, and secure code execution.
 *   **`default_system_prompt.py`**: Defines the agent's persona and the strict step-by-step workflow it must follow.
+
+---
+### To-dos
+
+* Expand the concept/value mapping step to use semantic vector search as well as direct LLM-based selection
+* Aggregation of different field mapping strategies (currently only does LLM-based table/field mapping followed by retrieving other semantically similar fields)
+
