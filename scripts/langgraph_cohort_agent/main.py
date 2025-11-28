@@ -37,7 +37,7 @@ from openai import OpenAI
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # ----- Polly setup -----
-AUTH_KEY = 'YmJmOTk3NmMwZjo6YjBkNzJmMjY3ODlkNWE0NDBlM2NlNmE3NzVjMzRhMTFmZDI2Y2Y2YQ==' #os.getenv("POLLY_AUTH_KEY", "")
+AUTH_KEY = os.getenv("POLLY_AUTH_KEY", "")
 ATLAS_ID = os.getenv("POLLY_ATLAS_ID", "beataml2")
 
 if not AUTH_KEY:
