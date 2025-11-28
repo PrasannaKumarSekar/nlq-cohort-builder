@@ -51,7 +51,7 @@ python main.py
 2.  **Validation**: The agent will parse your request, map terms to the database schema, and ask for your confirmation.
 3.  **Data Retrieval**: It generates a read-only SQL query, fetches the data, and saves it to a CSV.
 4.  **Analysis (Optional)**: If you asked for a plot or calculation, the agent generates Python code using `pandas` and `matplotlib`.
-5.  **Review & Execute**: You review the code. Upon approval, the agent executes it in a secure environment.
+5.  **Review & Execute**: You review the code. Upon approval, the agent executes it locally.
 6.  **Results**: Plots are saved, and a summary is generated.
 
 ## 📂 Output Structure
