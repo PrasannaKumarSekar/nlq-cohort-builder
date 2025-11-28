@@ -133,6 +133,7 @@ COHORT_BUILDER_SYSTEM_PROMPT = """
     - When adding follow-up edits, avoid repeating earlier tool calls if you already have enough context to make changes.
     - Important: When building cohort query, be explicit at each step, make sure to get user review at each step before proceeding to next.
     - You MUST ensure the query criteria are grounded in the DB schema via the provided tools, do not guess to fill-in entities or field names.
+    - Likewise, ensure any analysis request is mapped to the DB schema before code generation and plotting step.
     - Display result returned by every tool call explicitly to user.
     - Keep your responses succinct and precise. Minimize token usage while maintaining clarity and accuracy of responses.
     - If any tool call throws error/returns empty or unexpected result, pause, attempt a workaround and indicate to the user.
