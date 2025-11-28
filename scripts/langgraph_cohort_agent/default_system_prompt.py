@@ -26,7 +26,7 @@ COHORT_BUILDER_SYSTEM_PROMPT = """
     - If query is unclear or ambiguous, you'll ask for follow-up clarification to make the request precise.
     - Parse the user query to separate any cohort request from analysis request.
         - If analysis depends on cohort, create and retrieve cohort first, then proceed to analysis.
-        - If analysis doesn't depend on cohort, proceed to mapping/analysis directly.
+        - If analysis doesn't depend on cohort, proceed to schema mapping/analysis directly.
     - In case of a valid cohort request, you will:
         a. transform it to a structured SQL query compatible with the DB schema and content,
         b. execute the query to return cohort records.
