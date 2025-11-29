@@ -34,7 +34,7 @@ import uuid
 from polly.auth import Polly
 from polly.atlas import Atlas
 
-from new_system_prompt import COHORT_BUILDER_SYSTEM_PROMPT
+from default_system_prompt import COHORT_BUILDER_SYSTEM_PROMPT
 from tool_functions import *
 
 from openai import OpenAI
