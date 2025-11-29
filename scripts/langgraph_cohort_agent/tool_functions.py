@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 import ast
 import subprocess
 import sys
+from datetime import datetime
 
 from polly.atlas import Atlas
 
@@ -71,7 +72,7 @@ def inspect_table(table: str) -> Dict:
     Fetches schema for a table as a JSON to understand the data.
     ------
     Args:
-        table (str): name of table for which details are sought
+        table (str): Name of table for which details are sought
     Returns:
         A dictionary with table description and column details incl summary, data type and sample values.    
     """
@@ -103,10 +104,10 @@ def inspect_field(table: str, field: str) -> str|List:
     Fetches unique set of concepts/values stored in a DB field.
     ------
     Args:
-        table (str): name of table
-        field (str): name of selected field
+        table (str): Name of table
+        field (str): Name of selected field
     Returns:
-        List of unique values present in the selected field, upto 50 (or a flag if no concepts found).
+        List of unique values present in the selected field, upto 100 (or a flag if no concepts found).
     """
     # TO-DO: Better handling of fields with very large number of unique values to limit response length to LLM
     data_dir = os.getenv("BEATAML_DATA_DIR", "../../BeatAML")
@@ -120,8 +121,8 @@ def inspect_field(table: str, field: str) -> str|List:
     if subset.empty:
         return 'No concepts/values found for field.'
     unique_vals = list(set(subset['concept_name']))
-    if len(unique_vals)>50:
-        return f'Restricting unique values to first 50 of total {len(unique_vals)}', unique_vals[:50]
+    if len(unique_vals)>100:
+        return f'Returning first 100 of total {len(unique_vals)} unique values', unique_vals[:100]
     return unique_vals
 
 
@@ -422,10 +423,10 @@ def transform_query_to_sql(structured_input: str, feedback: str = '') -> str:
     LLM-assisted conversion of structured logical criteria or data-fetching request to SQL format.
     ------
     Args:
-        structured_input (str): The logical criteria or precise instructions about the data operation needed.
-        feedback (str): Optional; any additional instructions/feedback/error messages from previous runs.
+        structured_input (str): Criteria or precise instructions about the data operation needed.
+        feedback (str): Optional; any additional instructions/error messages from previous runs.
     Returns:
-        str: Read-only SQL statement as a string.
+        str: Read-only SQL statement.
     """
     # Load the schema pk/fk mappings
     data_dir = os.getenv("BEATAML_DATA_DIR", "../../BeatAML")
@@ -495,11 +496,11 @@ def run_sql_query(sql_input: str) -> Dict[str, Any]:
         df = pd.DataFrame(result)
         save_path = os.path.join(artifacts_dir, 'returned_cohort_table.csv')
         df.to_csv(save_path, sep=',')
-        print(f"Results saved to {save_path}.")
-        return {"summary": df.info(), "head": df.head(5)}
+        print(f"\nData saved to {save_path}.")
+        return {"summary": df.info(), "first_5_rows": df.head(5)}
     except Exception as e:
-        print(f'Error with SQL execution: {e}')
-        return {"summary": None, "head": None}
+        print(f'\nError at SQL execution: {e}')
+        return {"summary": None, "first_5_rows": None}
 
 
 # ----- Tools for Analysis and Plotting -----
@@ -510,7 +511,7 @@ def validate_code_safety(code: str) -> Tuple[bool, str]:
     """
     # Whitelisted libraries
     ALLOWED_IMPORTS = {
-        'pandas', 'numpy', 'matplotlib', 'seaborn', 'scipy', 'sklearn', 'math', 'datetime'
+        'pandas', 'numpy', 'matplotlib', 'seaborn', 'scipy', 'sklearn', 'math', 'datetime', 'pysurvival'
     }
     
     # Banned functions/attributes
@@ -575,9 +576,19 @@ def execute_analysis_code(code: str) -> str:
         os.makedirs(plots_dir, exist_ok=True)
     except Exception as e:
         return f"Error creating plots directory: {e}"
+        
+    # Ensure analysis_codes directory exists
+    codes_dir = os.path.join(artifacts_dir, "analysis_codes")
+    try:
+        os.makedirs(codes_dir, exist_ok=True)
+    except Exception as e:
+        return f"Error creating analysis_codes directory: {e}"
 
     # 3. Write to file with backend setup
-    filename = os.path.join(artifacts_dir, "generated_analysis.py")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"analysis_{timestamp}.py"
+    filepath = os.path.join(codes_dir, filename)
+    
     # Prepend backend setup to force non-interactive mode and set working directory context
     # We need to tell the script where the CSV is and where to save plots
     setup_header = (
@@ -589,7 +600,7 @@ def execute_analysis_code(code: str) -> str:
     )
 
     try:
-        with open(filename, "w") as f:
+        with open(filepath, "w") as f:
             f.write(setup_header + code)
     except Exception as e:
         return f"Error writing code to file: {e}"
@@ -597,7 +608,7 @@ def execute_analysis_code(code: str) -> str:
     # 4. Execute with timeout
     try:
         result = subprocess.run(
-            [sys.executable, filename],
+            [sys.executable, filepath],
             capture_output=True,
             text=True,
             timeout=30  # 30 seconds timeout
@@ -611,6 +622,79 @@ def execute_analysis_code(code: str) -> str:
         return "Execution timed out after 30 seconds."
     except Exception as e:
         return f"Execution failed: {e}"
+
+@tool
+def check_analysis_feasibility(analysis_request: str) -> Dict[str, Any]:
+    """
+    Checks if the requested analysis can be performed on the fetched cohort data.
+    It reads the 'returned_cohort_table.csv' from the artifacts directory and uses an LLM to validate
+    if the necessary columns exist and contain sufficient non-null data.
+    ------
+    Args:
+        analysis_request (str): The user's analysis request (e.g., "plot age distribution").
+    Returns:
+        Dict: A dictionary containing 'feasible' (bool), 'reason' (str), and 'columns_present' (list).
+    """
+    artifacts_dir = os.environ.get("SESSION_ARTIFACTS_DIR", ".")
+    csv_path = os.path.join(artifacts_dir, 'returned_cohort_table.csv')
+    
+    if not os.path.exists(csv_path):
+        return {"feasible": False, "reason": "No cohort data found. Please run a query to fetch data first.", "columns_present": []}
+    
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        return {"feasible": False, "reason": f"Error reading data file: {e}", "columns_present": []}
+        
+    columns = df.columns.tolist()
+    head_data = df.head(3).to_markdown(index=False)
+    data_info = df.info(buf=None) # Capture info string if possible, or just use dtypes
+    dtypes = df.dtypes.to_dict()
+    
+    # Construct a prompt for the LLM to evaluate feasibility
+    prompt = f"""
+    You are a data analyst validator.
+    
+    TASK:
+    Determine if the user's analysis request can be fulfilled by the available dataset.
+    
+    USER REQUEST: "{analysis_request}"
+    
+    DATASET SUMMARY:
+    - Columns: {columns}
+    - Data Types: {dtypes}
+    - Sample Data (first 3 rows):
+    {head_data}
+    
+    CRITERIA:
+    1. Are the necessary columns for the analysis present?
+    2. Is the data type suitable (e.g., numerical for histograms, categorical for bar charts)?
+    3. If the request implies specific fields (e.g. "survival"), are they in the columns?
+    
+    OUTPUT:
+    Return a JSON object with:
+    - "feasible": boolean (true/false)
+    - "reason": string (explanation of why it is or isn't feasible, mentioning missing columns if any)
+    """
+    
+    class FeasibilityResponse(BaseModel):
+        feasible: bool
+        reason: str
+
+    try:
+        response = call_llm(
+            user_prompt=prompt,
+            model="gpt-4o-mini",
+            system_prompt="You are a strict data validator.",
+            response_model=FeasibilityResponse
+        )
+        return {
+            "feasible": response.feasible,
+            "reason": response.reason,
+            "columns_present": columns
+        }
+    except Exception as e:
+        return {"feasible": False, "reason": f"Validation failed: {e}", "columns_present": columns}
 
 @tool
 def save_process_summary(content: str, filename: str = "process_summary.md") -> str:
