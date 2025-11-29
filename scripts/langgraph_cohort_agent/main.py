@@ -4,6 +4,13 @@ Basic version of NLQ Cohort Builder implemented as a LangGraph ReAct agent with 
 """
 
 from rich import print
+from rich.console import Console
+from rich.panel import Panel
+from rich.markdown import Markdown
+from rich.table import Table
+from rich import box
+
+console = Console()
 from typing import List, Dict, Any, Literal, Tuple, Optional, Union, Type, Annotated
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
@@ -27,7 +34,7 @@ import uuid
 from polly.auth import Polly
 from polly.atlas import Atlas
 
-from default_system_prompt import COHORT_BUILDER_SYSTEM_PROMPT
+from new_system_prompt import COHORT_BUILDER_SYSTEM_PROMPT
 from tool_functions import *
 
 from openai import OpenAI
@@ -43,7 +50,7 @@ ATLAS_ID = os.getenv("POLLY_ATLAS_ID", "beataml2")
 if not AUTH_KEY:
     raise ValueError("Missing Polly Auth Key. Please set POLLY_AUTH_KEY environment variable.")
 
-print(f"\nAuthenticating with Polly and connecting to Atlas: {ATLAS_ID}")
+console.print(f"\nAuthenticating with Polly and connecting to Atlas: {ATLAS_ID}")
 Polly.auth(AUTH_KEY, env="polly")
 atlas = Atlas(atlas_id=ATLAS_ID)
 
@@ -59,7 +66,16 @@ with open(os.path.join(BEATAML_DATA_DIR, 'BeatAML_schema.json'), 'r') as f:
 table_descriptions = {}
 for table in DB_SCHEMA.keys():
     table_descriptions[table] = DB_SCHEMA[table]['table_description'].split('.')[0]
-print('\nTables Present in DB:\n', json.dumps(table_descriptions, indent=2))
+
+# Print Schema Table
+table = Table(title="Database Schema", box=box.ROUNDED, show_header=True, header_style="bold magenta")
+table.add_column("Table Name", style="cyan", no_wrap=True)
+table.add_column("Description", style="white")
+
+for table_name, desc in table_descriptions.items():
+    table.add_row(table_name, desc)
+
+console.print(table)
 
 # ----- Get current date ----- 
 now = datetime.now()
@@ -81,7 +97,7 @@ graph_builder = StateGraph(State)
 tools = [inspect_table, inspect_field, 
          get_relevant_database_fields, get_relevant_field_values, 
          transform_query_to_sql, run_sql_query,
-         execute_analysis_code, save_process_summary]
+         check_analysis_feasibility, execute_analysis_code, save_process_summary]
 llm_with_tools = llm.bind_tools(tools)
 
 # interfacing agent
@@ -120,9 +136,10 @@ agent = create_react_agent(
 
 # --- Session Setup ---
 session_id = str(uuid.uuid4())[:8]
-artifacts_dir = f"./artifacts/{session_id}"
+artifacts_dir = f"./artifacts/session-{session_id}"
 os.makedirs(artifacts_dir, exist_ok=True)
 os.makedirs(f"{artifacts_dir}/plots", exist_ok=True)
+os.makedirs(f"{artifacts_dir}/analysis_codes", exist_ok=True)
 
 print(f"\n--- Session Initialized ---")
 print(f"Session ID: {session_id}")
@@ -146,12 +163,12 @@ def log_message(role, content, metadata=None):
 # ----- Query and run agent ----- 
 config = {"configurable": {"thread_id": session_id}}
 
-print("Start by providing a query. Type 'quit' to exit at any point.")
+console.print(Panel("Start by providing a query. Type 'quit' to exit at any point.", title="Welcome", border_style="blue"))
 start = True
 while True:
-    user_input = input("\nUser > ")
+    user_input = console.input("\n[bold green]User > [/bold green]")
     if user_input.lower() in ["quit", "exit"]:
-        print("\nExiting... Bye!\n")
+        console.print("\n[bold red]Exiting... Bye![/bold red]\n")
         break
 
     if start is True:
@@ -160,31 +177,43 @@ while True:
         start = False
     else:
         msgs = [{"role": "user", "content": user_input}]
-    events = graph.stream(
-        {"messages": msgs},
-        config,
-        stream_mode="values",
-    )
-    for event in events:
-        if "messages" in event:
-            msg = event["messages"][-1]
-            if not isinstance(msg, HumanMessage) and not isinstance(msg, ToolMessage):
-                msg.pretty_print() # not printing user or tool messages
-            
-            # Determine message role based on type
-            if isinstance(msg, HumanMessage):
-                role = "Human"
-            elif isinstance(msg, AIMessage):
-                role = "AI"
-            elif isinstance(msg, SystemMessage):
-                role = "System"
-            else:
-                role = type(msg).__name__
+    
+    with console.status("[bold green]Thinking...[/bold green]", spinner="dots"):
+        events = graph.stream(
+            {"messages": msgs},
+            config,
+            stream_mode="values",
+        )
+        for event in events:
+            if "messages" in event:
+                msg = event["messages"][-1]
+                
+                # Determine message role based on type
+                if isinstance(msg, HumanMessage):
+                    role = "Human"
+                elif isinstance(msg, AIMessage):
+                    role = "AI"
+                    # Display AI response
+                    if msg.content:
+                        md = Markdown(msg.content)
+                        console.print(Panel(md, title="🤖 Agent", border_style="green", box=box.ROUNDED))
+                    if msg.tool_calls:
+                        for tool_call in msg.tool_calls:
+                            console.print(f"[yellow]🛠️  Calling tool: [bold]{tool_call['name']}[/bold][/yellow]")
 
-            # Extract token usage if available
-            token_usage = getattr(msg, "response_metadata", {}).get("token_usage", None)
-            if token_usage:
-                print(f"\nTotal tokens used: {token_usage.get('total_tokens', 'NA')} (prompt tokens = {token_usage.get('prompt_tokens', 'NA')}, completion tokens = {token_usage.get('completion_tokens', 'NA')})")
+                elif isinstance(msg, SystemMessage):
+                    role = "System"
+                elif isinstance(msg, ToolMessage):
+                    role = "Tool"
+                    # Optional: Print tool output summary if needed, currently kept minimal
+                    # console.print(f"[dim]Tool output received[/dim]") 
+                else:
+                    role = type(msg).__name__
 
-            # Log message + metadata
-            log_message(role, msg.content, metadata=getattr(msg, "response_metadata", None))
+                # Extract token usage if available
+                token_usage = getattr(msg, "response_metadata", {}).get("token_usage", None)
+                if token_usage:
+                    console.print(f"[dim]Tokens: {token_usage.get('total_tokens', 'NA')} (Prompt: {token_usage.get('prompt_tokens', 'NA')}, Completion: {token_usage.get('completion_tokens', 'NA')})[/dim]")
+
+                # Log message + metadata
+                log_message(role, msg.content, metadata=getattr(msg, "response_metadata", None))
