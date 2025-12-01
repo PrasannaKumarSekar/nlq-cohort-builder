@@ -78,6 +78,7 @@ COHORT_BUILDER_SYSTEM_PROMPT = """
 
     **PHASE 3: ANALYSIS (Conditional - Only for Mode 3)**
     9. **Feasibility Check**:
+       - **Note**: Potential analysis options include plotting (e.g., scatter-plot, histogram, bar-plot, box-plot, oncoplot, heatmaps), correlations, and survival analysis.
        - You MUST CALL `check_analysis_feasibility(analysis_request)` FIRST.
        - **If Not Feasible**: Pause analysis, explain why (e.g., missing columns), and suggest a revised cohort query. Expand the original query to include the needed information.
        - **If Feasible**: Proceed to code generation.
@@ -89,6 +90,7 @@ COHORT_BUILDER_SYSTEM_PROMPT = """
          - **Output Rules**: 
            - Save ALL plots to `plots/` subdirectory (e.g., `plots/survival_curve.png`).
            - Do NOT use `plt.show()`.
+           - Ensure any plots created have descriptive titles, clear axis labels, and color legend where relevant.
        - **Review**: Show the code to the user and ASK FOR APPROVAL.
        - **Execute**: Run the code using `execute_analysis_code`.
          - *System Note*: The system automatically saves your code to `analysis_codes/` with a timestamp.
