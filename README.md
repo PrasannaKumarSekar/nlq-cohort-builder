@@ -30,3 +30,17 @@ conda create -n cohort_builder
 conda activate cohort_builder
 pip install -r requirements.txt
 ```
+### Usage
+```
+streamlit run scripts/app_streamlit.py
+```
+or 
+
+```
+# In a anotebook
+from scripts import agent_viz
+agent_viz.app
+agent_viz.ask('kaplan-meier plot for patient>40')
+```
+
+![KP-demo](assets/kp_demo.png)
