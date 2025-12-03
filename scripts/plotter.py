@@ -122,6 +122,75 @@ def plot_custom_oncoplot(matrix_df: pd.DataFrame, title: str = "OncoPrint"):
 # CIRCOS PLOT
 # TODO: Most prob. using https://github.com/moshi4/pyCirclize
 
+def plot_circos():
+    pass
+
 # MULTIVARIATE PLOTS
 # TODO: Infer variables to plot from input query
 # Also, based on filtering critera, give dynamic selection of possible plots.
+
+def plot_multivariate(df, **kwargs):
+    if isinstance(df, pl.DataFrame):
+        df = df.to_pandas()
+
+    # df.columns = list of pars to plot
+    # par1,2 ... n inferred from agent
+
+    assert len(df.columns)<6, f'Too many parameters for multivariate analysis!! ({len(df.columns)})'
+    sns.pairplot(df, **kwargs)
+    return None
+
+def plot_cumulative_incidence(df, par1, **kwargs):
+    fig, ax = plt.subplots()
+    sns.ecdfplot(
+        data=df,
+        x=par1,
+        ax=ax,
+        **kwargs
+    )
+    ax.grid(ls='--')
+    plt.show()
+    return None
+
+def plot_univariates():
+    pass
+
+# Load DB as Polars object
+import sqlite3
+import polars as pl
+
+# PolarsDB class
+
+class PolarsDB:
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        self.conn_str = f"sqlite:///{db_path}"
+        self.tables = self._get_tables()
+
+        # attach tables as lazyframes
+        for t in self.tables:
+            safe_name = self._safe_attr(t)
+            setattr(self, safe_name, self._lazy(t))
+
+    def _get_tables(self):
+        with sqlite3.connect(self.db_path) as con:
+            rows = con.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' ORDER BY name;
+            """).fetchall()
+        return [r[0] for r in rows]
+
+    def _lazy(self, table: str):
+        # Polars requires read_database_uri() (fast path)
+        return pl.read_database_uri(
+            query=f"SELECT * FROM {table}",
+            uri=self.conn_str
+        ).lazy()
+
+    def _safe_attr(self, name: str):
+        if name.isidentifier() and not name in dir(self):
+            return name
+        return f"tbl_{name}"
+
+    def __repr__(self):
+        return f"PolarsDB({len(self.tables)} tables): {', '.join(self.tables)}"
