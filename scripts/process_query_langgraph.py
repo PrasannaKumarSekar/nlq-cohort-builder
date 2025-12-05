@@ -7,11 +7,12 @@ Description: Sequential workflow for cohort criteria generation from a user quer
 # import libraries
 from dotenv import load_dotenv
 import os
+import re
 import uuid
 from datetime import datetime
 import json
 import ast
-from typing import List, Dict, Any, Literal, Tuple, Optional, Union, Type, TypedDict
+from typing import List, Dict, Any, Literal, Tuple, Optional, Union, Type, TypedDict, Set
 from pydantic import BaseModel, Field
 from rich import print
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -22,7 +23,7 @@ import pandas as pd
 from sqlalchemy import Table, Column, Integer, String, MetaData, select, or_, and_, not_, case, func
 from sqlalchemy.sql import text
 import collections
-from collections import deque
+from collections import deque, defaultdict
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
 from langgraph.checkpoint.memory import InMemorySaver
@@ -894,6 +895,204 @@ def rewrite_user_criteria(criteria_list: List[Dict[str, Any]], max_workers: int 
 
 
 # -------------------------
+# Applying filters across all tables
+# -------------------------
+def extract_tables_from_expression(expr: str) -> List[str]:
+    """
+    Extract table names from expressions like:
+    mutation.symbol = 'TET2'
+    patient.age > 40
+    sample.patient_id IN (...)
+    """
+    return list({part.split(".")[0] for part in re.findall(r"\b(\w+\.\w+)\b", expr)})
+
+
+def build_graph(schema: Dict) -> Dict[str, Set[str]]:
+    """
+    Create a graph where edges go both directions:
+    parent -> child and child -> parent.
+    """
+    graph = {table: set() for table in schema.keys()}
+
+    for table, info in schema.items():
+        for fk_field, parent_table in info["fks"].items():
+            # child -> parent
+            graph[table].add(parent_table)
+            # parent -> child
+            graph[parent_table].add(table)
+
+    return graph
+
+
+def run_query(atlas, sql: str) -> pd.DataFrame:
+    sql = " ".join(sql.split())
+    return pd.DataFrame(atlas.query(sql))
+
+
+def _quote_val(v: str) -> str:
+    if isinstance(v, (int, float)):
+        return str(v)
+    escaped = str(v).replace("'", "''")
+    return f"'{escaped}'"
+
+def apply_filter_and_propagate(state: Dict, schema: Dict):
+    """
+    Main function to apply criteria, extract filtered primary keys,
+    propagate to all connected tables via FK graph,
+    and store filter_result in the criterion object.
+    Propagation covers:
+      - CASE A: child -> parent (downward in original sense)
+      - CASE B: parent from child (upward)
+      - CASE C: multi-hop via intermediate tables
+      - CASE D: siblings (via parent)
+      - CASE E: parent with multiple children (up/down across siblings)
+    Assumes each revised_criterion mentions fields from a single table (no multi-table WHERE).
+    """
+
+    AUTH_KEY = os.getenv("POLLY_AUTH_KEY", "")
+    ATLAS_ID = os.getenv("POLLY_ATLAS_ID", "beataml2")
+    if not AUTH_KEY:
+        raise ValueError("Missing Polly Auth Key. Please set POLLY_AUTH_KEY environment variable.")
+    Polly.auth(AUTH_KEY, env="polly")
+    atlas = Atlas(atlas_id=ATLAS_ID)
+
+    graph = build_graph(schema)
+
+    for criterion in state:
+        expr = criterion.get("revised_criterion")
+        if not expr:
+            continue
+
+        # Identify base table (assume the expression references one table)
+        tables = extract_tables_from_expression(expr)
+        if not tables:
+            # nothing to do
+            criterion["filter_result"] = {}
+            continue
+
+        base_table = tables[0]
+        base_pk = schema[base_table]["pk"]
+
+        # 1) Seed base table ids
+        seed_sql = f"SELECT {base_pk} FROM {base_table} WHERE {expr};"
+        try:
+            df_base = run_query(atlas, seed_sql)
+        except Exception as e:
+            print(f"[ERROR] Failed to run seed query for {base_table}: {e}")
+            df_base = pd.DataFrame(columns=[base_pk])
+
+        base_ids = [str(x) for x in df_base[base_pk].tolist()]
+        # store computed ids as sets for fast operations
+        computed_ids: Dict[str, Set[str]] = defaultdict(set)
+        computed_ids[base_table].update(base_ids)
+
+        # 2) Iteratively propagate across graph (multi-hop, upward, downward, siblings)
+        # We'll repeatedly scan edges and propagate until no new ids appear.
+        changed = True
+        iteration = 0
+        while changed:
+            iteration += 1
+            changed = False
+            # For each table that currently has ids, try to propagate to its neighbors
+            for cur_table, cur_ids in list(computed_ids.items()):
+                if not cur_ids:
+                    continue
+                # For each neighbor (parent or child)
+                for neighbor in graph[cur_table]:
+                    # Determine relationship direction by inspecting schema fks
+                    # Case: cur_table is child, neighbor is parent if cur_table.fks has parent == neighbor
+                    cur_fks = schema[cur_table].get("fks", {})
+                    neighbor_fks = schema[neighbor].get("fks", {})
+
+                    # --- child -> parent (cur is child, neighbor is its parent) ---
+                    if any(parent == neighbor for parent in cur_fks.values()):
+                        # We need to fetch neighbor.pk where exists a cur row with cur.pk in cur_ids
+                        neighbor_pk = schema[neighbor]["pk"]
+                        cur_pk = schema[cur_table]["pk"]
+                        # Build SQL joining neighbor (p) and cur_table (c) on fk
+                        # find the fk field(s) in cur that point to neighbor (might be multiple; we'll OR them)
+                        fk_fields = [fk for fk, parent in cur_fks.items() if parent == neighbor]
+                        if not fk_fields:
+                            continue
+                        # join condition: c.<fk_field> = p.<neighbor_pk>
+                        # Use an EXISTS style query to avoid type-casting arrays across types:
+                        quoted_ids = ", ".join(_quote_val(v) for v in cur_ids)
+                        # Use IN on cur primary key
+                        sql = f"""
+                            SELECT DISTINCT p.{neighbor_pk} AS pk
+                            FROM {neighbor} p
+                            JOIN {cur_table} c ON {" OR ".join([f"c.{fk} = p.{neighbor_pk}" for fk in fk_fields])}
+                            WHERE c.{cur_pk} IN ({quoted_ids});
+                        """
+                        try:
+                            df = run_query(atlas, sql)
+                            found = set(map(str, df["pk"].tolist()))
+                        except Exception as e:
+                            print(f"[WARN] child->parent propagation failed for {cur_table}->{neighbor}: {e}")
+                            found = set()
+
+                        # Merge found into computed_ids[neighbor]
+                        if found - computed_ids[neighbor]:
+                            computed_ids[neighbor].update(found)
+                            changed = True
+
+                    # --- parent -> child (cur is parent, neighbor is child) ---
+                    if any(parent == cur_table for parent in neighbor_fks.values()):
+                        # neighbor.fk_field == cur_table
+                        child_pk = schema[neighbor]["pk"]
+                        # find fk fields in neighbor that reference cur_table
+                        fk_fields = [fk for fk, parent in neighbor_fks.items() if parent == cur_table]
+                        if not fk_fields:
+                            continue
+                        quoted_ids = ", ".join(_quote_val(v) for v in cur_ids)
+                        # Select neighbor.child_pk where neighbor.fk_field IN cur_ids
+                        where_clauses = " OR ".join([f"{fk} IN ({quoted_ids})" for fk in fk_fields])
+                        sql = f"SELECT DISTINCT {child_pk} AS pk FROM {neighbor} WHERE {where_clauses};"
+                        try:
+                            df = run_query(atlas, sql)
+                            found = set(map(str, df["pk"].tolist()))
+                        except Exception as e:
+                            print(f"[WARN] parent->child propagation failed for {cur_table}->{neighbor}: {e}")
+                            found = set()
+
+                        if found - computed_ids[neighbor]:
+                            computed_ids[neighbor].update(found)
+                            changed = True
+
+            # end for cur_table
+            # loop will repeat if any new ids were discovered
+
+        # 3) Final pass: ensure children of computed parents are also covered (direct downward fill)
+        # (This helps catch direct children when parent ids were discovered via multiple hops earlier.)
+        for table in list(schema.keys()):
+            if computed_ids.get(table):
+                continue
+            # check parents of this table
+            for fk_field, parent in schema[table].get("fks", {}).items():
+                if computed_ids.get(parent):
+                    pids = list(computed_ids[parent])
+                    if not pids:
+                        continue
+                    quoted = ", ".join(_quote_val(v) for v in pids)
+                    sql = f"SELECT DISTINCT {schema[table]['pk']} AS pk FROM {table} WHERE {fk_field} IN ({quoted});"
+                    try:
+                        df = run_query(atlas, sql)
+                        vals = set(map(str, df["pk"].tolist()))
+                    except Exception as e:
+                        print(f"[DEBUG] final downward fill failed for {table}: {e}")
+                        vals = set()
+                    if vals:
+                        computed_ids[table] = vals
+                        break
+
+        # 4) Store results sorted lists in state
+        # convert sets to sorted lists for deterministic output
+        criterion["filter_result"] = {t: sorted(list(v)) for t, v in computed_ids.items() if v}
+
+    return state
+
+
+# -------------------------
 # Validation of rewritten criteria
 # -------------------------
 class ValidatedExpr(BaseModel):
@@ -1454,6 +1653,9 @@ def process_query(state_dict: Dict, stage_counter: int, db_schema, db_embeddings
     elif stage_counter == 4:
         print(f"> Agent to User: Rewriting criteria in accordance with database schema")
         result = rewrite_user_criteria(state_dict["current_criteria"])
+
+        print(f"> Agent to User: Applying criteria to all tables")
+        result = apply_filter_and_propagate(result, schema_keys)
     elif stage_counter == 5:
         print(f"> Agent to User: Validating criteria for database compatibility")
         result = validate_criteria(state_dict["current_criteria"], db_schema)
